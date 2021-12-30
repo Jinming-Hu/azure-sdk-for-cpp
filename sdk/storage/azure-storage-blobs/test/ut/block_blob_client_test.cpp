@@ -1491,7 +1491,7 @@ namespace Azure { namespace Storage { namespace Test {
     EXPECT_TRUE(res.CommittedBlocks.empty());
     EXPECT_FALSE(res.UncommittedBlocks.empty());
 
-    auto blobItem = GetBlobItem(blobName, Blobs::Models::ListBlobsIncludeFlags::UncomittedBlobs);
+    auto blobItem = GetBlobItem(blobName, Blobs::Models::ListBlobsIncludeFlags::UncommittedBlobs);
     EXPECT_EQ(blobItem.BlobSize, 0);
   }
 
