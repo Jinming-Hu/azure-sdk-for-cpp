@@ -12,3 +12,4 @@
 #include "azure/storage/queues/queue_client.hpp"
 #include "azure/storage/queues/queue_sas_builder.hpp"
 #include "azure/storage/queues/queue_service_client.hpp"
+#include "azure/storage/common/storage_exception.hpp"
