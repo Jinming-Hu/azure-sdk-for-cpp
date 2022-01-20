@@ -4663,10 +4663,10 @@ namespace Azure { namespace Storage { namespace Blobs {
         _internal::XmlWriter writer;
         writer.Write(_internal::XmlNode{_internal::XmlNodeType::StartTag, "Tags"});
         writer.Write(_internal::XmlNode{_internal::XmlNodeType::StartTag, "TagSet"});
-        for (const auto& pairi1i2 : options.Tags)
+        for (const auto& i1i2 : options.Tags)
         {
-          const auto& i1 = pairi1i2.first;
-          const auto& i2 = pairi1i2.second;
+          const auto& i1 = i1i2.first;
+          const auto& i2 = i1i2.second;
           writer.Write(_internal::XmlNode{_internal::XmlNodeType::StartTag, "Tag"});
           writer.Write(_internal::XmlNode{_internal::XmlNodeType::StartTag, "Key", i1});
           writer.Write(_internal::XmlNode{_internal::XmlNodeType::StartTag, "Value", i2});
