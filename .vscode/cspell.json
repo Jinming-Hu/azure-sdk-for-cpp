@@ -167,6 +167,12 @@
       ]
     },
     {
+      "filename": "**sdk\storage\azure-storage-queues\inc\azure\storage\queues",
+      "words": [
+        "numofmessages"
+      ]
+    },
+    {
       "filename": "**/cmake-modules/**/*",
       "words": [
         "fprofile",
