@@ -167,7 +167,7 @@
       ]
     },
     {
-      "filename": "**sdk\storage\azure-storage-queues\inc\azure\storage\queues",
+      "filename": "**sdk/storage/azure-storage-queues/inc/azure/storage/queues",
       "words": [
         "numofmessages"
       ]
