@@ -5,6 +5,7 @@
 
 #include "azure/storage/datamovement/job_properties.hpp"
 #include "azure/storage/datamovement/scheduler.hpp"
+#include "azure/storage/datamovement/task_serialization.hpp"
 #include "azure/storage/datamovement/utilities.hpp"
 
 namespace Azure { namespace Storage { namespace Blobs { namespace _detail {
@@ -142,4 +143,35 @@ namespace Azure { namespace Storage { namespace Blobs { namespace _detail {
       SharedStatus->TaskTransferedCallback(1, Context->FileSize);
     }
   }
+
+  void DownloadBlobToFileTask::Serialize(_internal::SerializationObject& object) noexcept
+  {
+    (void)object;
+    AZURE_NOT_IMPLEMENTED();
+  }
+
+  void DownloadBlobToFileTask::Deserialize(const _internal::SerializationObject& object) noexcept
+  {
+    (void)object;
+    AZURE_NOT_IMPLEMENTED();
+  }
+
+  void DownloadRangeToMemoryTask::Serialize(_internal::SerializationObject& object) noexcept
+  {
+    (void)object;
+    AZURE_NOT_IMPLEMENTED();
+  }
+
+  void DownloadRangeToMemoryTask::Deserialize(const _internal::SerializationObject& object) noexcept
+  {
+    (void)object;
+    AZURE_NOT_IMPLEMENTED();
+  }
+
+  void WriteToFileTask::Serialize(_internal::SerializationObject& object) noexcept
+  {
+    (void)object;
+    AZURE_NOT_IMPLEMENTED();
+  }
+
 }}}} // namespace Azure::Storage::Blobs::_detail

@@ -6,6 +6,7 @@
 #include <atomic>
 #include <condition_variable>
 #include <cstdint>
+#include <functional>
 #include <mutex>
 #include <queue>
 #include <thread>
@@ -23,6 +24,7 @@ namespace Azure { namespace Storage { namespace _internal {
   {
     Nullable<int> NumThreads; // default: num cpus, minimum 5
     Nullable<size_t> MaxMemorySize; // default: 128MB * num threads
+    std::function<void(Task&)> SerializeTaskCallback;
   };
 
   class Scheduler final {

@@ -13,11 +13,9 @@ namespace Azure { namespace Storage { namespace Blobs { namespace _detail {
 
   struct DownloadBlobToFileTask final : public Storage::_internal::TaskBase
   {
-    DownloadBlobToFileTask(
-        Storage::_internal::TaskType type,
-        const Blobs::BlobClient& source,
-        const std::string& destination) noexcept
-        : TaskBase(type), Context(std::make_shared<TaskContext>(source, destination))
+    DownloadBlobToFileTask(const Blobs::BlobClient& source, const std::string& destination) noexcept
+        : TaskBase(_internal::TaskType::NetworkDownload),
+          Context(std::make_shared<TaskContext>(source, destination))
     {
     }
 
@@ -38,6 +36,8 @@ namespace Azure { namespace Storage { namespace Blobs { namespace _detail {
     std::shared_ptr<TaskContext> Context;
 
     void Execute() noexcept override;
+    void Serialize(_internal::SerializationObject& object) noexcept override;
+    void Deserialize(const _internal::SerializationObject& object) noexcept override;
   };
 
   struct DownloadRangeToMemoryTask final : public Storage::_internal::TaskBase
@@ -49,6 +49,8 @@ namespace Azure { namespace Storage { namespace Blobs { namespace _detail {
     size_t Length;
 
     void Execute() noexcept override;
+    void Serialize(_internal::SerializationObject& object) noexcept override;
+    void Deserialize(const _internal::SerializationObject& object) noexcept override;
   };
 
   struct WriteToFileTask final : public Storage::_internal::TaskBase
@@ -61,5 +63,6 @@ namespace Azure { namespace Storage { namespace Blobs { namespace _detail {
     std::unique_ptr<uint8_t[]> Buffer;
 
     void Execute() noexcept override;
+    void Serialize(_internal::SerializationObject& object) noexcept override;
   };
 }}}} // namespace Azure::Storage::Blobs::_detail

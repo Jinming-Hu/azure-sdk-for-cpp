@@ -10,6 +10,9 @@ namespace Azure { namespace Storage { namespace _internal {
   class Scheduler;
   class TaskSharedStatus;
 
+  struct SerializationContext;
+  struct SerializationObject;
+
   enum class TaskType
   {
     DiskIO,
@@ -18,8 +21,9 @@ namespace Azure { namespace Storage { namespace _internal {
     Other, // other tasks will be run ASAP
   };
 
-  // Task should be idempotent
-  // Task should be serializable and de-serializable
+  // Task should be idempotent.
+  // Task must be serializable and may not be deserializable.
+  // Deserializable task should be default-constructible and should have TaskName.
   struct TaskBase
   {
     explicit TaskBase(TaskType type) noexcept : Type(type) {}
@@ -40,16 +44,27 @@ namespace Azure { namespace Storage { namespace _internal {
     // task, copy this value to child task and then set the value of current task to zero.
     size_t MemoryGiveBack = 0;
 
-    template <class T, class... Args> std::unique_ptr<T> CreateTask(TaskType type, Args&&... args)
+    template <class T, class... Args> std::unique_ptr<T> CreateTask(Args&&... args)
     {
-      auto task = std::make_unique<T>(type, std::forward<Args>(args)...);
+      auto task = std::make_unique<T>(std::forward<Args>(args)...);
       task->SharedStatus = SharedStatus;
       return task;
     }
 
     virtual ~TaskBase() {}
     virtual void Execute() noexcept = 0;
-    virtual std::string Serialize() noexcept { return std::string(); }
+    virtual void Serialize(SerializationObject& object) noexcept = 0;
+    virtual void Deserialize(const SerializationObject& object) noexcept;
+
+  protected:
+    template <class T> void Serialize(SerializationObject& object) noexcept
+    {
+      object["_task_name"] = std::string(T::TaskName);
+      object["_task_type"] = Type;
+      object["_task_shared_status"] = SharedStatus;
+      object["_memory_cost"] = MemoryCost;
+      // ignore MemoryGiveBack
+    }
 
   private:
     TaskBase(const TaskBase& other) = default;
@@ -57,6 +72,6 @@ namespace Azure { namespace Storage { namespace _internal {
 
   using Task = std::unique_ptr<TaskBase>;
 
-  Task Deserialize(const char*);
+  Task DeserializeTask(const SerializationObject& object);
 
 }}} // namespace Azure::Storage::_internal

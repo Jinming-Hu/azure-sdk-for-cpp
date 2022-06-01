@@ -16,11 +16,14 @@ namespace Azure { namespace Storage { namespace Blobs { namespace _detail {
 
   struct UploadBlobFromFileTask final : public Storage::_internal::TaskBase
   {
+    static constexpr const char* TaskName = "UploadBlobFromFileTask";
+
+    UploadBlobFromFileTask() : TaskBase(_internal::TaskType::NetworkUpload) {}
     explicit UploadBlobFromFileTask(
-        _internal::TaskType type,
         const std::string& source,
         const Blobs::BlobClient& destination) noexcept
-        : TaskBase(type), Context(std::make_shared<TaskContext>(source, destination))
+        : TaskBase(_internal::TaskType::NetworkUpload),
+          Context(std::make_shared<TaskContext>(source, destination))
     {
     }
 
@@ -41,30 +44,38 @@ namespace Azure { namespace Storage { namespace Blobs { namespace _detail {
     std::shared_ptr<TaskContext> Context;
 
     void Execute() noexcept override;
+    void Serialize(_internal::SerializationObject& object) noexcept override;
+    void Deserialize(const _internal::SerializationObject& object) noexcept override;
   };
 
   struct ReadFileRangeToMemoryTask final : public Storage::_internal::TaskBase
   {
-    using TaskBase::TaskBase;
+    static constexpr const char* TaskName = "ReadFileRangeToMemoryTask";
+
+    ReadFileRangeToMemoryTask() : TaskBase(_internal::TaskType::DiskIO) {}
 
     std::shared_ptr<UploadBlobFromFileTask::TaskContext> Context;
-    int BlockId;
-    int64_t Offset;
-    size_t Length;
+    int BlockId = 0;
+    int64_t Offset = 0;
+    size_t Length = 0;
 
     void Execute() noexcept override;
+    void Serialize(_internal::SerializationObject& object) noexcept override;
+    void Deserialize(const _internal::SerializationObject& object) noexcept override;
   };
 
   struct StageBlockTask final : public Storage::_internal::TaskBase
   {
-    using TaskBase::TaskBase;
+    StageBlockTask() : TaskBase(_internal::TaskType::NetworkUpload) {}
 
     std::shared_ptr<UploadBlobFromFileTask::TaskContext> Context;
-    int BlockId;
-    size_t Length;
+    int BlockId = 0;
+    int64_t Offset = 0;
+    size_t Length = 0;
     std::unique_ptr<uint8_t[]> Buffer;
 
     void Execute() noexcept override;
+    void Serialize(_internal::SerializationObject& object) noexcept override;
   };
 
 }}}} // namespace Azure::Storage::Blobs::_detail

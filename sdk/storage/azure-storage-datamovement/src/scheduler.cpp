@@ -15,6 +15,7 @@
 #include <azure/core/azure_assert.hpp>
 
 #include "azure/storage/datamovement/job_properties.hpp"
+#include "azure/storage/datamovement/task_serialization.hpp"
 
 #if defined(_MSC_VER)
 #pragma warning(disable : 26110 26117)
@@ -249,48 +250,61 @@ namespace Azure { namespace Storage { namespace _internal {
     {
       th.join();
     }
+
     {
       std::lock_guard<std::mutex> guard(m_readyTasksMutex);
       while (!m_readyTasks.empty())
       {
-        ReclaimProvisionedResource(m_readyTasks.front());
-        ReclaimAllocatedResource(m_readyTasks.front());
+        auto task = std::move(m_readyTasks.front());
         m_readyTasks.pop();
+        m_options.SerializeTaskCallback(task);
+        ReclaimProvisionedResource(task);
+        ReclaimAllocatedResource(task);
       }
     }
     {
       std::lock_guard<std::mutex> guard(m_readyDiskIOTasksMutex);
       while (!m_readyDiskIOTasks.empty())
       {
-        ReclaimProvisionedResource(m_readyDiskIOTasks.front());
-        ReclaimAllocatedResource(m_readyTasks.front());
+        auto task = std::move(m_readyDiskIOTasks.front());
         m_readyDiskIOTasks.pop();
+        m_options.SerializeTaskCallback(task);
+        ReclaimProvisionedResource(task);
+        ReclaimAllocatedResource(task);
       }
     }
     {
       std::lock_guard<std::mutex> guard(m_pausedTasksMutex);
       while (!m_pausedTasks.empty())
       {
-        ReclaimAllocatedResource(m_pausedTasks.front());
+        auto task = std::move(m_pausedTasks.front());
         m_pausedTasks.pop();
+        m_options.SerializeTaskCallback(task);
+        ReclaimAllocatedResource(task);
       }
     }
     {
       std::lock_guard<std::mutex> guard(m_pendingTasksMutex);
       while (!m_pendingDiskIOTasks.empty())
       {
-        ReclaimAllocatedResource(m_pendingDiskIOTasks.front());
+        auto task = std::move(m_pendingDiskIOTasks.front());
         m_pendingDiskIOTasks.pop();
+        m_options.SerializeTaskCallback(task);
+        ReclaimAllocatedResource(task);
       }
       while (!m_pendingNetworkUploadTasks.empty())
       {
-        ReclaimAllocatedResource(m_pendingNetworkUploadTasks.front());
+        auto task = std::move(m_pendingNetworkUploadTasks.front());
         m_pendingNetworkUploadTasks.pop();
+        m_options.SerializeTaskCallback(task);
+        ReclaimAllocatedResource(task);
       }
       while (!m_pendingNetworkDownloadTasks.empty())
       {
-        ReclaimAllocatedResource(m_pendingNetworkDownloadTasks.front());
+        auto task = std::move(m_pendingNetworkDownloadTasks.front());
         m_pendingNetworkDownloadTasks.pop();
+        m_options.SerializeTaskCallback(task);
+        ReclaimAllocatedResource(task);
       }
     }
     AZURE_ASSERT(m_memoryLeft == m_options.MaxMemorySize.Value());

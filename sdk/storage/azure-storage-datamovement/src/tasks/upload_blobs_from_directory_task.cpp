@@ -9,6 +9,7 @@
 
 #include "azure/storage/datamovement/job_properties.hpp"
 #include "azure/storage/datamovement/scheduler.hpp"
+#include "azure/storage/datamovement/task_serialization.hpp"
 #include "azure/storage/datamovement/utilities.hpp"
 
 namespace Azure { namespace Storage { namespace Blobs { namespace _detail {
@@ -55,17 +56,13 @@ namespace Azure { namespace Storage { namespace Blobs { namespace _detail {
       if (entry.IsDirectory)
       {
         auto task = CreateTask<UploadBlobsFromDirectoryTask>(
-            _internal::TaskType::NetworkUpload,
-            Source + '/' + entry.Name,
-            Destination.GetBlobFolder(entry.Name));
+            Source + '/' + entry.Name, Destination.GetBlobFolder(entry.Name));
         subtasks.push_back(std::move(task));
       }
       else
       {
         auto task = CreateTask<UploadBlobFromFileTask>(
-            _internal::TaskType::NetworkUpload,
-            Source + '/' + entry.Name,
-            Destination.GetBlobClient(entry.Name));
+            Source + '/' + entry.Name, Destination.GetBlobClient(entry.Name));
         subtasks.push_back(std::move(task));
       }
     }
@@ -81,4 +78,18 @@ namespace Azure { namespace Storage { namespace Blobs { namespace _detail {
       SharedStatus->Scheduler->AddTasks(std::move(subtasks));
     }
   }
+
+  void UploadBlobsFromDirectoryTask::Serialize(_internal::SerializationObject& object) noexcept
+  {
+    (void)object;
+    AZURE_NOT_IMPLEMENTED();
+  }
+
+  void UploadBlobsFromDirectoryTask::Deserialize(
+      const _internal::SerializationObject& object) noexcept
+  {
+    (void)object;
+    AZURE_NOT_IMPLEMENTED();
+  }
+
 }}}} // namespace Azure::Storage::Blobs::_detail

@@ -35,11 +35,9 @@ namespace Azure { namespace Storage {
         std::string sourceUrl,
         std::string destinationUrl);
 
-  protected:
-    _internal::Scheduler m_scheduler;
-
   private:
     std::shared_ptr<_internal::TaskSharedStatus> GetJobStatus(const std::string& jobId);
+    _internal::SchedulerOptions GetSchedulerOptions();
 
   private:
     StorageTransferManagerOptions m_options;
@@ -47,6 +45,9 @@ namespace Azure { namespace Storage {
     // TODO: need some way to clean up finished jobs
     std::map<std::string, _internal::JobDetails> m_jobDetails;
     std::mutex m_jobDetailsMutex;
+
+  protected:
+    _internal::Scheduler m_scheduler;
   };
 
 }} // namespace Azure::Storage

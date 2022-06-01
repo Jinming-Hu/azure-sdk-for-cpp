@@ -25,8 +25,8 @@ namespace Azure { namespace Storage { namespace Blobs {
     auto& jobProperties = pair.first;
     auto& rootTask = pair.second;
 
-    auto task = rootTask->CreateTask<_detail::UploadBlobFromFileTask>(
-        _internal::TaskType::NetworkUpload, sourceLocalPath, destinationBlob);
+    auto task
+        = rootTask->CreateTask<_detail::UploadBlobFromFileTask>(sourceLocalPath, destinationBlob);
 
     m_scheduler.AddTask(std::move(task));
 
@@ -48,7 +48,7 @@ namespace Azure { namespace Storage { namespace Blobs {
     auto& rootTask = pair.second;
 
     auto task = rootTask->CreateTask<_detail::UploadBlobsFromDirectoryTask>(
-        _internal::TaskType::NetworkUpload, sourceLocalPath, destinationBlobFolder);
+        sourceLocalPath, destinationBlobFolder);
 
     m_scheduler.AddTask(std::move(task));
 
@@ -69,8 +69,8 @@ namespace Azure { namespace Storage { namespace Blobs {
     auto& jobProperties = pair.first;
     auto& rootTask = pair.second;
 
-    auto task = rootTask->CreateTask<_detail::DownloadBlobToFileTask>(
-        _internal::TaskType::NetworkDownload, sourceBlob, destinationLocalPath);
+    auto task
+        = rootTask->CreateTask<_detail::DownloadBlobToFileTask>(sourceBlob, destinationLocalPath);
 
     m_scheduler.AddTask(std::move(task));
 
