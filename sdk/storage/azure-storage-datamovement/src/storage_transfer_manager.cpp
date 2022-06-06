@@ -4,20 +4,72 @@
 #include "azure/storage/datamovement/storage_transfer_manager.hpp"
 
 #include <atomic>
+#include <cstdio>
+#include <fstream>
 #include <mutex>
 #include <stdexcept>
+#include <type_traits>
 
+#include <azure/core/internal/json/json.hpp>
 #include <azure/core/uuid.hpp>
+
+#include "azure/storage/datamovement/journal.hpp"
 
 namespace Azure { namespace Storage {
 
   StorageTransferManager::StorageTransferManager(const StorageTransferManagerOptions& options)
-      : m_scheduler(_internal::SchedulerOptions{options.NumThreads, options.MaxMemorySize}),
-        m_options(options)
+      : m_options(options),
+        m_scheduler(_internal::SchedulerOptions{options.NumThreads, options.MaxMemorySize})
+
   {
   }
 
-  StorageTransferManager::~StorageTransferManager() {}
+  StorageTransferManager::~StorageTransferManager()
+  {
+    m_scheduler.Stop();
+    if (!m_options.TransferStateDirectoryPath.empty())
+    {
+      std::lock_guard<std::mutex> guard(m_jobDetailsMutex);
+      for (auto& pair : m_jobDetails)
+      {
+        auto& jobDetails = pair.second;
+        auto sharedStatus = jobDetails.SharedStatus.lock();
+        if (!sharedStatus)
+        {
+          continue;
+        }
+        auto jobStatus = sharedStatus->Status.load(std::memory_order_relaxed);
+        if (jobStatus != JobStatus::InProgress && jobStatus != JobStatus::Paused)
+        {
+          continue;
+        }
+        Core::Json::_internal::json serializedObject;
+        serializedObject["id"] = jobDetails.Id;
+        serializedObject["source_url"] = jobDetails.SourceUrl;
+        serializedObject["destination_url"] = jobDetails.DestinationUrl;
+        serializedObject["type"]
+            = static_cast<std::underlying_type_t<TransferType>>(jobDetails.Type);
+        serializedObject["shared_status"] = {};
+        serializedObject["shared_status"]["num_files_transferred"]
+            = sharedStatus->NumFilesTransferred.load(std::memory_order_relaxed);
+        serializedObject["shared_status"]["num_files_skipped"]
+            = sharedStatus->NumFilesSkipped.load(std::memory_order_relaxed);
+        serializedObject["shared_status"]["num_files_failed"]
+            = sharedStatus->NumFilesFailed.load(std::memory_order_relaxed);
+        serializedObject["shared_status"]["total_bytes_transferred"]
+            = sharedStatus->TotalBytesTransferred.load(std::memory_order_relaxed);
+        serializedObject["journal"] = jobDetails.JournalTree->ToString();
+        const std::string journalFileName
+            = m_options.TransferStateDirectoryPath + "/" + jobDetails.Id;
+        std::ofstream fout(journalFileName + ".tmp", std::ofstream::binary);
+        std::string fileContent = serializedObject.dump(4);
+        fout.write(fileContent.data(), fileContent.size());
+        fout.close();
+        int ret = std::rename((journalFileName + ".tmp").data(), journalFileName.data());
+        (void)ret;
+      }
+    }
+  }
 
   std::shared_ptr<_internal::TaskSharedStatus> StorageTransferManager::GetJobStatus(
       const std::string& jobId)
@@ -159,7 +211,7 @@ namespace Azure { namespace Storage {
   {
     struct DummyTask final : public Storage::_internal::TaskBase
     {
-      using TaskBase::TaskBase;
+      DummyTask() : TaskBase(_internal::TaskType::Other) {}
       void Execute() noexcept override { AZURE_UNREACHABLE_CODE(); }
     };
 
@@ -174,11 +226,20 @@ namespace Azure { namespace Storage {
     jobDetails.DestinationUrl = std::move(destinationUrl);
     jobDetails.Type = type;
     jobDetails.SharedStatus = sharedStatus;
+    bool journalEnabled = !m_options.TransferStateDirectoryPath.empty();
+    if (journalEnabled)
+    {
+      jobDetails.JournalTree = std::make_unique<_internal::JournalTree>();
+    }
 
     auto jobProperties = jobDetails.GetJobProperties();
 
-    auto rootTask = std::make_unique<DummyTask>(_internal::TaskType::Other);
+    auto rootTask = std::make_unique<DummyTask>();
     rootTask->SharedStatus = sharedStatus;
+    if (journalEnabled)
+    {
+      rootTask->JournalAgent = _internal::JournalAgent(*jobDetails.JournalTree);
+    }
 
     {
       std::lock_guard<std::mutex> guard(m_jobDetailsMutex);

@@ -11,10 +11,10 @@ namespace Azure { namespace Storage { namespace Blobs { namespace _detail {
   struct DownloadBlobDirectoryTask final : public _internal::TaskBase
   {
     DownloadBlobDirectoryTask(
-        _internal::TaskType type,
         const Blobs::BlobFolder& source,
         const std::string& destination) noexcept
-        : TaskBase(type), Context(std::make_shared<TaskContext>(source, destination))
+        : TaskBase(_internal::TaskType::NetworkDownload),
+          Context(std::make_shared<TaskContext>(source, destination))
     {
     }
 

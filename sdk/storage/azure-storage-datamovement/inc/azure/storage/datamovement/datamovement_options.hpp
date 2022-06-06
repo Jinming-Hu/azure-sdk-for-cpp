@@ -13,7 +13,7 @@
 namespace Azure { namespace Storage {
   struct StorageTransferManagerOptions final
   {
-    std::string TransferStateDirectoryPath;
+    std::string TransferStateDirectoryPath = ".";
     Nullable<int> NumThreads;
     Nullable<size_t> MaxMemorySize;
   };

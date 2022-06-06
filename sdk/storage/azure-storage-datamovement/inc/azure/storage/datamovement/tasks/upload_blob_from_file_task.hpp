@@ -17,10 +17,10 @@ namespace Azure { namespace Storage { namespace Blobs { namespace _detail {
   struct UploadBlobFromFileTask final : public Storage::_internal::TaskBase
   {
     explicit UploadBlobFromFileTask(
-        _internal::TaskType type,
         const std::string& source,
         const Blobs::BlobClient& destination) noexcept
-        : TaskBase(type), Context(std::make_shared<TaskContext>(source, destination))
+        : TaskBase(_internal::TaskType::NetworkUpload),
+          Context(std::make_shared<TaskContext>(source, destination))
     {
     }
 
@@ -45,23 +45,23 @@ namespace Azure { namespace Storage { namespace Blobs { namespace _detail {
 
   struct ReadFileRangeToMemoryTask final : public Storage::_internal::TaskBase
   {
-    using TaskBase::TaskBase;
+    ReadFileRangeToMemoryTask() : TaskBase(_internal::TaskType::DiskIO) {}
 
     std::shared_ptr<UploadBlobFromFileTask::TaskContext> Context;
-    int BlockId;
-    int64_t Offset;
-    size_t Length;
+    int BlockId{0};
+    int64_t Offset{0};
+    size_t Length{0};
 
     void Execute() noexcept override;
   };
 
   struct StageBlockTask final : public Storage::_internal::TaskBase
   {
-    using TaskBase::TaskBase;
+    StageBlockTask() : TaskBase(_internal::TaskType::NetworkUpload) {}
 
     std::shared_ptr<UploadBlobFromFileTask::TaskContext> Context;
-    int BlockId;
-    size_t Length;
+    int BlockId{0};
+    size_t Length{0};
     std::unique_ptr<uint8_t[]> Buffer;
 
     void Execute() noexcept override;

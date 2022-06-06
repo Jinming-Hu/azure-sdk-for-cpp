@@ -74,7 +74,7 @@ namespace Azure { namespace Storage { namespace Blobs { namespace _detail {
     std::vector<_internal::Task> subtasks;
     for (int blockId = 0; blockId < Context->NumBlocks; ++blockId)
     {
-      auto readFileRangeTask = CreateTask<ReadFileRangeToMemoryTask>(_internal::TaskType::DiskIO);
+      auto readFileRangeTask = CreateTask<ReadFileRangeToMemoryTask>(std::to_string(blockId));
       readFileRangeTask->Context = Context;
       readFileRangeTask->BlockId = blockId;
       readFileRangeTask->Offset = blockId * ChunkSize;
@@ -114,12 +114,13 @@ namespace Azure { namespace Storage { namespace Blobs { namespace _detail {
       return;
     }
 
-    auto stageBlockTask = CreateTask<StageBlockTask>(_internal::TaskType::NetworkUpload);
+    auto stageBlockTask = CreateTask<StageBlockTask>(std::string());
     stageBlockTask->Context = Context;
     stageBlockTask->BlockId = BlockId;
     stageBlockTask->Buffer = std::move(buffer);
     stageBlockTask->Length = Length;
     std::swap(stageBlockTask->MemoryGiveBack, this->MemoryGiveBack);
+    stageBlockTask->JournalAgent = std::move(JournalAgent);
 
     SharedStatus->Scheduler->AddTask(std::move(stageBlockTask));
   }

@@ -38,6 +38,8 @@ namespace Azure { namespace Storage { namespace _internal {
 
     void ResumePausedTasks();
 
+    void Stop();
+
   private:
     void ReclaimProvisionedResource(const Task& t)
     {

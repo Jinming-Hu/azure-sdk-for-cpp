@@ -6,6 +6,8 @@
 #include <memory>
 #include <string>
 
+#include "azure/storage/datamovement/journal.hpp"
+
 namespace Azure { namespace Storage { namespace _internal {
   class Scheduler;
   class TaskSharedStatus;
@@ -23,12 +25,14 @@ namespace Azure { namespace Storage { namespace _internal {
   struct TaskBase
   {
     explicit TaskBase(TaskType type) noexcept : Type(type) {}
-    TaskBase(TaskBase&& other) noexcept : TaskBase(other) {}
+    TaskBase(const TaskBase&) = delete;
+    TaskBase(TaskBase&& other) noexcept = default;
     TaskBase& operator=(const TaskBase&) = delete;
     TaskBase& operator=(TaskBase&&) = delete;
 
     TaskType Type;
     std::shared_ptr<TaskSharedStatus> SharedStatus;
+    _internal::JournalAgent JournalAgent;
 
     // This value should be initialized when task is created. Corresponding resource is reduced
     // when the task enters ready queue. If the task is successfully executed, resource is added
@@ -40,18 +44,20 @@ namespace Azure { namespace Storage { namespace _internal {
     // task, copy this value to child task and then set the value of current task to zero.
     size_t MemoryGiveBack = 0;
 
-    template <class T, class... Args> std::unique_ptr<T> CreateTask(TaskType type, Args&&... args)
+    template <class T, class... Args>
+    std::unique_ptr<T> CreateTask(std::string name, Args&&... args)
     {
-      auto task = std::make_unique<T>(type, std::forward<Args>(args)...);
+      auto task = std::make_unique<T>(std::forward<Args>(args)...);
       task->SharedStatus = SharedStatus;
+      if (JournalAgent && !name.empty())
+      {
+        task->JournalAgent = JournalAgent.CreateChild(name);
+      }
       return task;
     }
 
     virtual ~TaskBase() {}
     virtual void Execute() noexcept = 0;
-
-  private:
-    TaskBase(const TaskBase& other) = default;
   };
 
   using Task = std::unique_ptr<TaskBase>;

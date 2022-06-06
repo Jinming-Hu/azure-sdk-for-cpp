@@ -240,15 +240,7 @@ namespace Azure { namespace Storage { namespace _internal {
 
   Scheduler::~Scheduler()
   {
-    m_stopped.store(true, std::memory_order_relaxed);
-    m_pendingTasksCv.notify_one();
-    m_readyDiskIOTasksCv.notify_all();
-    m_readyTasksCv.notify_all();
-    m_schedulerThread.join();
-    for (auto& th : m_workerThreads)
-    {
-      th.join();
-    }
+    Stop();
     {
       std::lock_guard<std::mutex> guard(m_readyTasksMutex);
       while (!m_readyTasks.empty())
@@ -428,6 +420,22 @@ namespace Azure { namespace Storage { namespace _internal {
       m_pausedTasks.swap(stillPausedTasks);
     }
     AddTasks(std::move(resumedTasks));
+  }
+
+  void Scheduler::Stop()
+  {
+    bool oldValue = m_stopped.exchange(true, std::memory_order_relaxed);
+    if (!oldValue)
+    {
+      m_pendingTasksCv.notify_one();
+      m_readyDiskIOTasksCv.notify_all();
+      m_readyTasksCv.notify_all();
+      m_schedulerThread.join();
+      for (auto& th : m_workerThreads)
+      {
+        th.join();
+      }
+    }
   }
 
 }}} // namespace Azure::Storage::_internal

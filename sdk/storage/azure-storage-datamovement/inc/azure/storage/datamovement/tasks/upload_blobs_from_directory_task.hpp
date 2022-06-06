@@ -16,10 +16,9 @@ namespace Azure { namespace Storage { namespace Blobs { namespace _detail {
   struct UploadBlobsFromDirectoryTask final : public Storage::_internal::TaskBase
   {
     explicit UploadBlobsFromDirectoryTask(
-        _internal::TaskType type,
         const std::string& source,
         const BlobFolder& destination) noexcept
-        : TaskBase(type), Source(source), Destination(destination)
+        : TaskBase(_internal::TaskType::NetworkUpload), Source(source), Destination(destination)
     {
     }
     UploadBlobsFromDirectoryTask(UploadBlobsFromDirectoryTask&& other) noexcept

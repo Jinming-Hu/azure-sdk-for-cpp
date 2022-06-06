@@ -11,6 +11,7 @@
 #include <type_traits>
 
 #include "azure/storage/datamovement/datamovement_options.hpp"
+#include "azure/storage/datamovement/journal.hpp"
 #include "azure/storage/datamovement/scheduler.hpp"
 
 namespace Azure { namespace Storage {
@@ -128,6 +129,7 @@ namespace Azure { namespace Storage {
       std::string DestinationUrl;
       TransferType Type = static_cast<TransferType>(std::underlying_type_t<TransferType>(0));
       std::weak_ptr<TaskSharedStatus> SharedStatus;
+      std::unique_ptr<_internal::JournalTree> JournalTree;
 
       JobProperties GetJobProperties() const;
     };

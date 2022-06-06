@@ -55,17 +55,13 @@ namespace Azure { namespace Storage { namespace Blobs { namespace _detail {
       if (entry.IsDirectory)
       {
         auto task = CreateTask<UploadBlobsFromDirectoryTask>(
-            _internal::TaskType::NetworkUpload,
-            Source + '/' + entry.Name,
-            Destination.GetBlobFolder(entry.Name));
+            entry.Name, Source + '/' + entry.Name, Destination.GetBlobFolder(entry.Name));
         subtasks.push_back(std::move(task));
       }
       else
       {
         auto task = CreateTask<UploadBlobFromFileTask>(
-            _internal::TaskType::NetworkUpload,
-            Source + '/' + entry.Name,
-            Destination.GetBlobClient(entry.Name));
+            entry.Name, Source + '/' + entry.Name, Destination.GetBlobClient(entry.Name));
         subtasks.push_back(std::move(task));
       }
     }
