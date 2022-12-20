@@ -103,7 +103,8 @@ namespace Azure { namespace Storage { namespace Blobs {
 
   BlobClient::BlobClient(const std::string& blobUrl, const BlobClientOptions& options)
       : m_blobUrl(blobUrl), m_customerProvidedKey(options.CustomerProvidedKey),
-        m_encryptionScope(options.EncryptionScope)
+        m_encryptionScope(options.EncryptionScope),
+        m_transaferValidation(options.TransferValidation)
   {
     std::vector<std::unique_ptr<Azure::Core::Http::Policies::HttpPolicy>> perRetryPolicies;
     std::vector<std::unique_ptr<Azure::Core::Http::Policies::HttpPolicy>> perOperationPolicies;
@@ -171,16 +172,15 @@ namespace Azure { namespace Storage { namespace Blobs {
       }
       protocolLayerOptions.Range = rangeStr;
     }
-    if (options.RangeHashAlgorithm.HasValue())
+    auto checksumAlgorithm = _internal::GetChecksumAlgorithmForDownloadOperation(
+        m_transaferValidation, options.TransferValidation, options.RangeHashAlgorithm);
+    if (checksumAlgorithm == StorageChecksumAlgorithm::Md5)
     {
-      if (options.RangeHashAlgorithm.Value() == HashAlgorithm::Md5)
-      {
-        protocolLayerOptions.RangeGetContentMD5 = true;
-      }
-      else if (options.RangeHashAlgorithm.Value() == HashAlgorithm::Crc64)
-      {
-        protocolLayerOptions.RangeGetContentCRC64 = true;
-      }
+      protocolLayerOptions.RangeGetContentMD5 = true;
+    }
+    else if (checksumAlgorithm == StorageChecksumAlgorithm::StorageCrc64)
+    {
+      protocolLayerOptions.RangeGetContentCRC64 = true;
     }
     protocolLayerOptions.LeaseId = options.AccessConditions.LeaseId;
     protocolLayerOptions.IfModifiedSince = options.AccessConditions.IfModifiedSince;
@@ -286,6 +286,18 @@ namespace Azure { namespace Storage { namespace Blobs {
             std::move(policy));
       }
     }
+    if (checksumAlgorithm != StorageChecksumAlgorithm::None
+        && options.TransferValidation.AutoValidateChecksum
+        && downloadResponse.Value.TransactionalContentHash.HasValue())
+    {
+      _internal::ChecksumBodyStream stream(
+          std::move(downloadResponse.Value.BodyStream),
+          downloadResponse.Value.TransactionalContentHash.Value());
+      auto content = stream.ReadToEnd(context);
+      stream.Verify();
+      downloadResponse.Value.BodyStream
+          = std::make_unique<_internal::VectorBodyStream>(std::move(content));
+    }
     return downloadResponse;
   }
 
@@ -295,6 +307,9 @@ namespace Azure { namespace Storage { namespace Blobs {
       const DownloadBlobToOptions& options,
       const Azure::Core::Context& context) const
   {
+    auto checksumAlgorithm = _internal::GetChecksumAlgorithmForDownloadOperation(
+        m_transaferValidation, options.TransferValidation, Nullable<HashAlgorithm>());
+
     // Just start downloading using an initial chunk. If it's a small blob, we'll get the whole
     // thing in one shot. If it's a large blob, we'll get its full size in Content-Range and can
     // keep downloading it in chunks.
@@ -311,6 +326,8 @@ namespace Azure { namespace Storage { namespace Blobs {
     {
       firstChunkOptions.Range.Value().Length = firstChunkLength;
     }
+    firstChunkOptions.TransferValidation.ChecksumAlgorithm = checksumAlgorithm;
+    firstChunkOptions.TransferValidation.AutoValidateChecksum = false;
 
     auto firstChunk = Download(firstChunkOptions, context);
     const Azure::ETag eTag = firstChunk.Value.Details.ETag;
@@ -338,12 +355,36 @@ namespace Azure { namespace Storage { namespace Blobs {
           "Buffer is not big enough, blob range size is " + std::to_string(blobRangeSize) + ".");
     }
 
-    int64_t bytesRead = firstChunk.Value.BodyStream->ReadToCount(
-        buffer, static_cast<size_t>(firstChunkLength), context);
-    if (bytesRead != firstChunkLength)
-    {
-      throw Azure::Core::RequestFailedException("Error when reading body stream.");
-    }
+    auto bodyStreamToBuffer = [validateChecksum
+                               = checksumAlgorithm != StorageChecksumAlgorithm::None
+                                   && options.TransferValidation.AutoValidateChecksum](
+                                  std::unique_ptr<Azure::Core::IO::BodyStream>& stream,
+                                  uint8_t* buffer,
+                                  int64_t length,
+                                  const Nullable<ContentHash>& checksum,
+                                  const Azure::Core::Context& context) {
+      if (validateChecksum && checksum.HasValue())
+      {
+        stream
+            = std::make_unique<_internal::ChecksumBodyStream>(std::move(stream), checksum.Value());
+      }
+      int64_t bytesRead = stream->ReadToCount(buffer, static_cast<size_t>(length), context);
+      if (bytesRead != length)
+      {
+        throw Azure::Core::RequestFailedException("Error when reading body stream.");
+      }
+      if (validateChecksum && checksum.HasValue())
+      {
+        static_cast<_internal::ChecksumBodyStream*>(stream.get())->Verify();
+      }
+    };
+
+    bodyStreamToBuffer(
+        firstChunk.Value.BodyStream,
+        buffer,
+        firstChunkLength,
+        firstChunk.Value.TransactionalContentHash,
+        context);
     firstChunk.Value.BodyStream.reset();
 
     auto returnTypeConverter = [](Azure::Response<Models::DownloadBlobResult>& response) {
@@ -366,15 +407,15 @@ namespace Azure { namespace Storage { namespace Blobs {
             chunkOptions.Range.Value().Offset = offset;
             chunkOptions.Range.Value().Length = length;
             chunkOptions.AccessConditions.IfMatch = eTag;
+            chunkOptions.TransferValidation.ChecksumAlgorithm = checksumAlgorithm;
+            chunkOptions.TransferValidation.AutoValidateChecksum = false;
             auto chunk = Download(chunkOptions, context);
-            int64_t bytesRead = chunk.Value.BodyStream->ReadToCount(
-                buffer + (offset - firstChunkOffset),
-                static_cast<size_t>(chunkOptions.Range.Value().Length.Value()),
+            bodyStreamToBuffer(
+                chunk.Value.BodyStream,
+                buffer + (offset - firstChunkLength),
+                chunkOptions.Range.Value().Length.Value(),
+                chunk.Value.TransactionalContentHash,
                 context);
-            if (bytesRead != chunkOptions.Range.Value().Length.Value())
-            {
-              throw Azure::Core::RequestFailedException("Error when reading body stream.");
-            }
 
             if (chunkId == numChunks - 1)
             {
@@ -402,6 +443,9 @@ namespace Azure { namespace Storage { namespace Blobs {
       const DownloadBlobToOptions& options,
       const Azure::Core::Context& context) const
   {
+    auto checksumAlgorithm = _internal::GetChecksumAlgorithmForDownloadOperation(
+        m_transaferValidation, options.TransferValidation, Nullable<HashAlgorithm>());
+
     // Just start downloading using an initial chunk. If it's a small blob, we'll get the whole
     // thing in one shot. If it's a large blob, we'll get its full size in Content-Range and can
     // keep downloading it in chunks.
@@ -418,6 +462,8 @@ namespace Azure { namespace Storage { namespace Blobs {
     {
       firstChunkOptions.Range.Value().Length = firstChunkLength;
     }
+    firstChunkOptions.TransferValidation.ChecksumAlgorithm = checksumAlgorithm;
+    firstChunkOptions.TransferValidation.AutoValidateChecksum = false;
 
     auto firstChunk = Download(firstChunkOptions, context);
     const Azure::ETag eTag = firstChunk.Value.Details.ETag;
@@ -438,17 +484,25 @@ namespace Azure { namespace Storage { namespace Blobs {
     }
     firstChunkLength = std::min(firstChunkLength, blobRangeSize);
 
-    auto bodyStreamToFile = [](Azure::Core::IO::BodyStream& stream,
-                               _internal::FileWriter& fileWriter,
-                               int64_t offset,
-                               int64_t length,
-                               const Azure::Core::Context& context) {
+    auto bodyStreamToFile = [validateChecksum = checksumAlgorithm != StorageChecksumAlgorithm::None
+                                 && options.TransferValidation.AutoValidateChecksum](
+                                std::unique_ptr<Azure::Core::IO::BodyStream>& stream,
+                                _internal::FileWriter& fileWriter,
+                                int64_t offset,
+                                int64_t length,
+                                const Nullable<ContentHash>& checksum,
+                                const Azure::Core::Context& context) {
       constexpr size_t bufferSize = 4 * 1024 * 1024;
       std::vector<uint8_t> buffer(bufferSize);
+      if (validateChecksum && checksum.HasValue())
+      {
+        stream
+            = std::make_unique<_internal::ChecksumBodyStream>(std::move(stream), checksum.Value());
+      }
       while (length > 0)
       {
         size_t readSize = static_cast<size_t>(std::min<int64_t>(bufferSize, length));
-        size_t bytesRead = stream.ReadToCount(buffer.data(), readSize, context);
+        size_t bytesRead = stream->ReadToCount(buffer.data(), readSize, context);
         if (bytesRead != readSize)
         {
           throw Azure::Core::RequestFailedException("Error when reading body stream.");
@@ -457,10 +511,20 @@ namespace Azure { namespace Storage { namespace Blobs {
         length -= bytesRead;
         offset += bytesRead;
       }
+      if (validateChecksum && checksum.HasValue())
+      {
+        static_cast<_internal::ChecksumBodyStream*>(stream.get())->Verify();
+      }
     };
 
     _internal::FileWriter fileWriter(fileName);
-    bodyStreamToFile(*(firstChunk.Value.BodyStream), fileWriter, 0, firstChunkLength, context);
+    bodyStreamToFile(
+        firstChunk.Value.BodyStream,
+        fileWriter,
+        0,
+        firstChunkLength,
+        firstChunk.Value.TransactionalContentHash,
+        context);
     firstChunk.Value.BodyStream.reset();
 
     auto returnTypeConverter = [](Azure::Response<Models::DownloadBlobResult>& response) {
@@ -485,12 +549,12 @@ namespace Azure { namespace Storage { namespace Blobs {
             chunkOptions.AccessConditions.IfMatch = eTag;
             auto chunk = Download(chunkOptions, context);
             bodyStreamToFile(
-                *(chunk.Value.BodyStream),
+                chunk.Value.BodyStream,
                 fileWriter,
                 offset - firstChunkOffset,
                 chunkOptions.Range.Value().Length.Value(),
+                chunk.Value.TransactionalContentHash,
                 context);
-
             if (chunkId == numChunks - 1)
             {
               ret = returnTypeConverter(chunk);

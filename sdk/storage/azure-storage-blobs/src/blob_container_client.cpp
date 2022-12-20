@@ -196,7 +196,8 @@ namespace Azure { namespace Storage { namespace Blobs {
       const std::string& blobContainerUrl,
       const BlobClientOptions& options)
       : m_blobContainerUrl(blobContainerUrl), m_customerProvidedKey(options.CustomerProvidedKey),
-        m_encryptionScope(options.EncryptionScope)
+        m_encryptionScope(options.EncryptionScope),
+        m_transaferValidation(options.TransferValidation)
   {
     std::vector<std::unique_ptr<Azure::Core::Http::Policies::HttpPolicy>> perRetryPolicies;
     std::vector<std::unique_ptr<Azure::Core::Http::Policies::HttpPolicy>> perOperationPolicies;
@@ -223,7 +224,12 @@ namespace Azure { namespace Storage { namespace Blobs {
   {
     auto blobUrl = m_blobContainerUrl;
     blobUrl.AppendPath(_internal::UrlEncodePath(blobName));
-    return BlobClient(std::move(blobUrl), m_pipeline, m_customerProvidedKey, m_encryptionScope);
+    auto blobClient = BlobClient(blobUrl.GetAbsoluteUrl());
+    blobClient.m_pipeline = m_pipeline;
+    blobClient.m_customerProvidedKey = m_customerProvidedKey;
+    blobClient.m_encryptionScope = m_encryptionScope;
+    blobClient.m_transaferValidation = m_transaferValidation;
+    return blobClient;
   }
 
   BlockBlobClient BlobContainerClient::GetBlockBlobClient(const std::string& blobName) const

@@ -108,7 +108,8 @@ namespace Azure { namespace Storage { namespace Blobs {
       const std::string& serviceUrl,
       const BlobClientOptions& options)
       : m_serviceUrl(serviceUrl), m_customerProvidedKey(options.CustomerProvidedKey),
-        m_encryptionScope(options.EncryptionScope)
+        m_encryptionScope(options.EncryptionScope),
+        m_transaferValidation(options.TransferValidation)
   {
     std::vector<std::unique_ptr<Azure::Core::Http::Policies::HttpPolicy>> perRetryPolicies;
     std::vector<std::unique_ptr<Azure::Core::Http::Policies::HttpPolicy>> perOperationPolicies;
@@ -141,6 +142,7 @@ namespace Azure { namespace Storage { namespace Blobs {
     blobContainerClient.m_pipeline = m_pipeline;
     blobContainerClient.m_customerProvidedKey = m_customerProvidedKey;
     blobContainerClient.m_encryptionScope = m_encryptionScope;
+    blobContainerClient.m_transaferValidation = m_transaferValidation;
     blobContainerClient.m_batchRequestPipeline = m_batchRequestPipeline;
     blobContainerClient.m_batchSubrequestPipeline = m_batchSubrequestPipeline;
     return blobContainerClient;

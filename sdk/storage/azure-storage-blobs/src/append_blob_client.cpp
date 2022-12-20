@@ -141,18 +141,19 @@ namespace Azure { namespace Storage { namespace Blobs {
       const Azure::Core::Context& context) const
   {
     _detail::AppendBlobClient::AppendAppendBlobBlockOptions protocolLayerOptions;
-    if (options.TransactionalContentHash.HasValue())
+    auto checksum = _internal::GetChecksumForUploadOperation(
+        m_transaferValidation,
+        options.TransferValidation,
+        options.TransactionalContentHash,
+        content,
+        context);
+    if (checksum.first == StorageChecksumAlgorithm::Md5)
     {
-      if (options.TransactionalContentHash.Value().Algorithm == HashAlgorithm::Md5)
-      {
-        protocolLayerOptions.TransactionalContentMD5
-            = options.TransactionalContentHash.Value().Value;
-      }
-      else if (options.TransactionalContentHash.Value().Algorithm == HashAlgorithm::Crc64)
-      {
-        protocolLayerOptions.TransactionalContentCrc64
-            = options.TransactionalContentHash.Value().Value;
-      }
+      protocolLayerOptions.TransactionalContentMD5 = std::move(checksum.second);
+    }
+    else if (checksum.first == StorageChecksumAlgorithm::StorageCrc64)
+    {
+      protocolLayerOptions.TransactionalContentCrc64 = std::move(checksum.second);
     }
     protocolLayerOptions.LeaseId = options.AccessConditions.LeaseId;
     protocolLayerOptions.MaxSize = options.AccessConditions.IfMaxSizeLessThanOrEqual;

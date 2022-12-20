@@ -15,6 +15,7 @@
 #include <azure/core/modified_conditions.hpp>
 #include <azure/storage/common/access_conditions.hpp>
 #include <azure/storage/common/crypt.hpp>
+#include <azure/storage/common/transfer_validation.hpp>
 
 #include "azure/storage/blobs/rest_client.hpp"
 
@@ -158,6 +159,12 @@ namespace Azure { namespace Storage { namespace Blobs {
      * API version used by this client.
      */
     std::string ApiVersion;
+
+    /**
+     * Configures whether to send or receive checksum headers for blob uploads and downloads.
+     * Downloads can optionally validate that the content matches the checksum.
+     */
+    TransferValidationOptions TransferValidation;
   };
 
   /**
@@ -613,6 +620,16 @@ namespace Azure { namespace Storage { namespace Blobs {
      * @brief Optional conditions that must be met to perform this operation.
      */
     BlobAccessConditions AccessConditions;
+
+    /**
+     * Optinal override settings for this client's transfer validation settings. Set
+     * AutoValidateChecksum to false if you would like to skip SDK checksum validation and validate
+     * the checksum found in the response yourself.
+     * Range must be provided explicitly, stating a range within Azure Storage size limits to
+     * request a transactional hash.
+     * This also overrides RangeHashAlgorithm.
+     */
+    DownloadTransferValidationOptions TransferValidation;
   };
 
   /**
@@ -647,6 +664,15 @@ namespace Azure { namespace Storage { namespace Blobs {
        */
       int32_t Concurrency = 5;
     } TransferOptions;
+
+    /**
+     * Optinal override settings for this client's transfer validation settings. Set
+     * AutoValidateChecksum to false if you would like to skip SDK checksum validation and validate
+     * the checksum found in the response yourself.
+     * Chunk size, if provided explicitly, must be within Azure Storage size limits to request a
+     * transactional hash.
+     */
+    DownloadTransferValidationOptions TransferValidation;
   };
 
   /**
@@ -792,6 +818,8 @@ namespace Azure { namespace Storage { namespace Blobs {
      * @brief Hash of the blob content. This hash is used to verify the integrity of
      * the blob during transport. When this header is specified, the storage service checks the hash
      * that has arrived with the one that was sent.
+     *
+     * @note This option is deprecated. Please use TransferValidation instead.
      */
     Azure::Nullable<ContentHash> TransactionalContentHash;
 
@@ -829,6 +857,12 @@ namespace Azure { namespace Storage { namespace Blobs {
      * Indicates whether the blob has a legal hold.
      */
     Azure::Nullable<bool> HasLegalHold;
+
+    /**
+     * Optional override settings for this client's TransferValidation settings.
+     * This also overrides TransactionalContentHash.
+     */
+    UploadTransferValidationOptions TransferValidation;
   };
 
   /**
@@ -888,6 +922,12 @@ namespace Azure { namespace Storage { namespace Blobs {
      * Indicates whether the blob has a legal hold.
      */
     Azure::Nullable<bool> HasLegalHold;
+
+    /**
+     * Optional overrides settings for this client's TransferValidation settings.
+     * This also overrides TransactionalContentHash.
+     */
+    UploadTransferValidationOptions TransferValidation;
   };
 
   struct UploadBlockBlobFromUriOptions final
@@ -955,6 +995,8 @@ namespace Azure { namespace Storage { namespace Blobs {
      * @brief Hash of the blob content. This hash is used to verify the integrity of
      * the blob during transport. When this header is specified, the storage service checks the hash
      * that has arrived with the one that was sent.
+     *
+     * @note This option is deprecated. Please use TransferValidation instead.
      */
     Azure::Nullable<ContentHash> TransactionalContentHash;
 
@@ -962,6 +1004,12 @@ namespace Azure { namespace Storage { namespace Blobs {
      * @brief Optional conditions that must be met to perform this operation.
      */
     LeaseAccessConditions AccessConditions;
+
+    /**
+     * Optional overrides settings for this client's TransferValidation settings.
+     * This also overrides TransactionalContentHash.
+     */
+    UploadTransferValidationOptions TransferValidation;
   };
 
   /**
@@ -1247,6 +1295,8 @@ namespace Azure { namespace Storage { namespace Blobs {
      * @brief Hash of the blob content. This hash is used to verify the integrity of
      * the blob during transport. When this header is specified, the storage service checks the hash
      * that has arrived with the one that was sent.
+     *
+     * @note This option is deprecated. Please use TransferValidation instead.
      */
     Azure::Nullable<ContentHash> TransactionalContentHash;
 
@@ -1254,6 +1304,12 @@ namespace Azure { namespace Storage { namespace Blobs {
      * @brief Optional conditions that must be met to perform this operation.
      */
     AppendBlobAccessConditions AccessConditions;
+
+    /**
+     * Optional overrides settings for this client's TransferValidation settings.
+     * This also overrides TransactionalContentHash.
+     */
+    UploadTransferValidationOptions TransferValidation;
   };
 
   /**
@@ -1348,6 +1404,8 @@ namespace Azure { namespace Storage { namespace Blobs {
      * @brief Hash of the blob content. This hash is used to verify the integrity of
      * the blob during transport. When this header is specified, the storage service checks the hash
      * that has arrived with the one that was sent.
+     *
+     * @note This option is deprecated. Please use TransferValidation instead.
      */
     Azure::Nullable<ContentHash> TransactionalContentHash;
 
@@ -1355,6 +1413,12 @@ namespace Azure { namespace Storage { namespace Blobs {
      * @brief Optional conditions that must be met to perform this operation.
      */
     PageBlobAccessConditions AccessConditions;
+
+    /**
+     * Optional overrides settings for this client's TransferValidation settings.
+     * This also overrides TransactionalContentHash.
+     */
+    UploadTransferValidationOptions TransferValidation;
   };
 
   /**

@@ -98,18 +98,19 @@ namespace Azure { namespace Storage { namespace Blobs {
       const Azure::Core::Context& context) const
   {
     _detail::BlockBlobClient::UploadBlockBlobOptions protocolLayerOptions;
-    if (options.TransactionalContentHash.HasValue())
+    auto checksum = _internal::GetChecksumForUploadOperation(
+        m_transaferValidation,
+        options.TransferValidation,
+        options.TransactionalContentHash,
+        content,
+        context);
+    if (checksum.first == StorageChecksumAlgorithm::Md5)
     {
-      if (options.TransactionalContentHash.Value().Algorithm == HashAlgorithm::Md5)
-      {
-        protocolLayerOptions.TransactionalContentMD5
-            = options.TransactionalContentHash.Value().Value;
-      }
-      else if (options.TransactionalContentHash.Value().Algorithm == HashAlgorithm::Crc64)
-      {
-        protocolLayerOptions.TransactionalContentCrc64
-            = options.TransactionalContentHash.Value().Value;
-      }
+      protocolLayerOptions.TransactionalContentMD5 = std::move(checksum.second);
+    }
+    else if (checksum.first == StorageChecksumAlgorithm::StorageCrc64)
+    {
+      protocolLayerOptions.TransactionalContentCrc64 = std::move(checksum.second);
     }
     protocolLayerOptions.BlobContentType = options.HttpHeaders.ContentType;
     protocolLayerOptions.BlobContentEncoding = options.HttpHeaders.ContentEncoding;
@@ -171,7 +172,21 @@ namespace Azure { namespace Storage { namespace Blobs {
       uploadBlockBlobOptions.AccessTier = options.AccessTier;
       uploadBlockBlobOptions.ImmutabilityPolicy = options.ImmutabilityPolicy;
       uploadBlockBlobOptions.HasLegalHold = options.HasLegalHold;
+      auto checksum = _internal::GetChecksumForUploadOperation(
+          m_transaferValidation,
+          options.TransferValidation,
+          Nullable<ContentHash>(),
+          buffer,
+          bufferSize);
+      uploadBlockBlobOptions.TransferValidation.ChecksumAlgorithm = checksum.first;
+      uploadBlockBlobOptions.TransferValidation.PrecalculatedChecksum = checksum.second;
       return Upload(contentStream, uploadBlockBlobOptions, context);
+    }
+
+    if (!options.TransferValidation.PrecalculatedChecksum.empty())
+    {
+      throw Azure::Core::RequestFailedException(
+          "Pre-calculated checksum is provided, but blob is too big for single upload.");
     }
 
     int64_t chunkSize;
@@ -202,6 +217,14 @@ namespace Azure { namespace Storage { namespace Blobs {
     auto uploadBlockFunc = [&](int64_t offset, int64_t length, int64_t chunkId, int64_t numChunks) {
       Azure::Core::IO::MemoryBodyStream contentStream(buffer + offset, static_cast<size_t>(length));
       StageBlockOptions chunkOptions;
+      auto checksum = _internal::GetChecksumForUploadOperation(
+          m_transaferValidation,
+          options.TransferValidation,
+          Nullable<ContentHash>(),
+          buffer + offset,
+          length);
+      chunkOptions.TransferValidation.ChecksumAlgorithm = checksum.first;
+      chunkOptions.TransferValidation.PrecalculatedChecksum = checksum.second;
       auto blockInfo = StageBlock(getBlockId(chunkId), contentStream, chunkOptions, context);
       if (chunkId == numChunks - 1)
       {
@@ -258,8 +281,15 @@ namespace Azure { namespace Storage { namespace Blobs {
         uploadBlockBlobOptions.AccessTier = options.AccessTier;
         uploadBlockBlobOptions.ImmutabilityPolicy = options.ImmutabilityPolicy;
         uploadBlockBlobOptions.HasLegalHold = options.HasLegalHold;
+        uploadBlockBlobOptions.TransferValidation = options.TransferValidation;
         return Upload(contentStream, uploadBlockBlobOptions, context);
       }
+    }
+
+    if (!options.TransferValidation.PrecalculatedChecksum.empty())
+    {
+      throw Azure::Core::RequestFailedException(
+          "Pre-calculated checksum is provided, but blob is too big for single upload.");
     }
 
     std::vector<std::string> blockIds;
@@ -277,6 +307,7 @@ namespace Azure { namespace Storage { namespace Blobs {
       Azure::Core::IO::_internal::RandomAccessFileBodyStream contentStream(
           fileReader.GetHandle(), offset, length);
       StageBlockOptions chunkOptions;
+      chunkOptions.TransferValidation = options.TransferValidation;
       auto blockInfo = StageBlock(getBlockId(chunkId), contentStream, chunkOptions, context);
       if (chunkId == numChunks - 1)
       {
@@ -390,20 +421,21 @@ namespace Azure { namespace Storage { namespace Blobs {
       const Azure::Core::Context& context) const
   {
     _detail::BlockBlobClient::StageBlockBlobBlockOptions protocolLayerOptions;
-    protocolLayerOptions.BlockId = blockId;
-    if (options.TransactionalContentHash.HasValue())
+    auto checksum = _internal::GetChecksumForUploadOperation(
+        m_transaferValidation,
+        options.TransferValidation,
+        options.TransactionalContentHash,
+        content,
+        context);
+    if (checksum.first == StorageChecksumAlgorithm::Md5)
     {
-      if (options.TransactionalContentHash.Value().Algorithm == HashAlgorithm::Md5)
-      {
-        protocolLayerOptions.TransactionalContentMD5
-            = options.TransactionalContentHash.Value().Value;
-      }
-      else if (options.TransactionalContentHash.Value().Algorithm == HashAlgorithm::Crc64)
-      {
-        protocolLayerOptions.TransactionalContentCrc64
-            = options.TransactionalContentHash.Value().Value;
-      }
+      protocolLayerOptions.TransactionalContentMD5 = std::move(checksum.second);
     }
+    else if (checksum.first == StorageChecksumAlgorithm::StorageCrc64)
+    {
+      protocolLayerOptions.TransactionalContentCrc64 = std::move(checksum.second);
+    }
+    protocolLayerOptions.BlockId = blockId;
     protocolLayerOptions.LeaseId = options.AccessConditions.LeaseId;
     if (m_customerProvidedKey.HasValue())
     {

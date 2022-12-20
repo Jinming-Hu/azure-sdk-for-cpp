@@ -413,19 +413,9 @@ namespace Azure { namespace Storage { namespace Blobs {
     std::shared_ptr<Azure::Core::Http::_internal::HttpPipeline> m_pipeline;
     Azure::Nullable<EncryptionKey> m_customerProvidedKey;
     Azure::Nullable<std::string> m_encryptionScope;
+    TransferValidationOptions m_transaferValidation;
 
   private:
-    explicit BlobClient(
-        Azure::Core::Url blobUrl,
-        std::shared_ptr<Azure::Core::Http::_internal::HttpPipeline> pipeline,
-        Azure::Nullable<EncryptionKey> customerProvidedKey = Azure::Nullable<EncryptionKey>(),
-        Azure::Nullable<std::string> encryptionScope = Azure::Nullable<std::string>())
-        : m_blobUrl(std::move(blobUrl)), m_pipeline(std::move(pipeline)),
-          m_customerProvidedKey(std::move(customerProvidedKey)),
-          m_encryptionScope(std::move(encryptionScope))
-    {
-    }
-
     friend class BlobContainerClient;
     friend class Files::DataLake::DataLakeFileSystemClient;
     friend class Files::DataLake::DataLakeDirectoryClient;

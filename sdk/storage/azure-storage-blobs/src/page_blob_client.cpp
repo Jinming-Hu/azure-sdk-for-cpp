@@ -150,21 +150,22 @@ namespace Azure { namespace Storage { namespace Blobs {
       const Azure::Core::Context& context) const
   {
     _detail::PageBlobClient::UploadPageBlobPagesOptions protocolLayerOptions;
+    auto checksum = _internal::GetChecksumForUploadOperation(
+        m_transaferValidation,
+        options.TransferValidation,
+        options.TransactionalContentHash,
+        content,
+        context);
+    if (checksum.first == StorageChecksumAlgorithm::Md5)
+    {
+      protocolLayerOptions.TransactionalContentMD5 = std::move(checksum.second);
+    }
+    else if (checksum.first == StorageChecksumAlgorithm::StorageCrc64)
+    {
+      protocolLayerOptions.TransactionalContentCrc64 = std::move(checksum.second);
+    }
     protocolLayerOptions.Range
         = "bytes=" + std::to_string(offset) + "-" + std::to_string(offset + content.Length() - 1);
-    if (options.TransactionalContentHash.HasValue())
-    {
-      if (options.TransactionalContentHash.Value().Algorithm == HashAlgorithm::Md5)
-      {
-        protocolLayerOptions.TransactionalContentMD5
-            = options.TransactionalContentHash.Value().Value;
-      }
-      else if (options.TransactionalContentHash.Value().Algorithm == HashAlgorithm::Crc64)
-      {
-        protocolLayerOptions.TransactionalContentCrc64
-            = options.TransactionalContentHash.Value().Value;
-      }
-    }
     protocolLayerOptions.LeaseId = options.AccessConditions.LeaseId;
     protocolLayerOptions.IfModifiedSince = options.AccessConditions.IfModifiedSince;
     protocolLayerOptions.IfUnmodifiedSince = options.AccessConditions.IfUnmodifiedSince;

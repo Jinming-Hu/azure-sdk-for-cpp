@@ -59,6 +59,7 @@ set(
     inc/azure/storage/common/storage_common.hpp
     inc/azure/storage/common/storage_credential.hpp
     inc/azure/storage/common/storage_exception.hpp
+    inc/azure/storage/common/transfer_validation.hpp
 )
 
 set(
@@ -74,6 +75,7 @@ set(
     src/storage_exception.cpp
     src/storage_per_retry_policy.cpp
     src/storage_switch_to_secondary_policy.cpp
+    src/transfer_validation.cpp
     src/xml_wrapper.cpp
 )
 
