@@ -43,7 +43,7 @@ namespace Azure { namespace Storage {
     /**
      * Checksum algorithm to use.
      */
-    StorageChecksumAlgorithm ChecksumAlgorithm = StorageChecksumAlgorithm::None;
+    StorageChecksumAlgorithm ChecksumAlgorithm = StorageChecksumAlgorithm::Auto;
 
     /**
      * Optional. Can only be used on specific operations and not at the client level. An existing
@@ -61,7 +61,7 @@ namespace Azure { namespace Storage {
     /**
      * Checksum algorithm to use.
      */
-    StorageChecksumAlgorithm ChecksumAlgorithm = StorageChecksumAlgorithm::None;
+    StorageChecksumAlgorithm ChecksumAlgorithm = StorageChecksumAlgorithm::Auto;
 
     /**
      *
