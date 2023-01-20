@@ -6,9 +6,6 @@
 #include "azure/storage/common/crypt.hpp"
 
 namespace Azure { namespace Storage { namespace _internal {
-  namespace {
-    StorageChecksumAlgorithm g_AlgorithmDefaultsTo = StorageChecksumAlgorithm::None;
-  }
 
   size_t VectorBodyStream::OnRead(uint8_t* buffer, size_t count, Core::Context const& context)
 
@@ -62,10 +59,6 @@ namespace Azure { namespace Storage { namespace _internal {
       const DownloadTransferValidationOptions& operationLevelOptions,
       const Nullable<HashAlgorithm>& legacyOperationLevelOptions)
   {
-    if (operationLevelOptions.ChecksumAlgorithm == StorageChecksumAlgorithm::None)
-    {
-      return StorageChecksumAlgorithm::None;
-    }
     if (operationLevelOptions.ChecksumAlgorithm == StorageChecksumAlgorithm::Md5)
     {
       return StorageChecksumAlgorithm::Md5;
@@ -73,10 +66,6 @@ namespace Azure { namespace Storage { namespace _internal {
     if (operationLevelOptions.ChecksumAlgorithm == StorageChecksumAlgorithm::StorageCrc64)
     {
       return StorageChecksumAlgorithm::StorageCrc64;
-    }
-    if (clientLevelOptions.Download.ChecksumAlgorithm == StorageChecksumAlgorithm::None)
-    {
-      return StorageChecksumAlgorithm::None;
     }
     if (clientLevelOptions.Download.ChecksumAlgorithm == StorageChecksumAlgorithm::Md5)
     {
@@ -96,7 +85,7 @@ namespace Azure { namespace Storage { namespace _internal {
     {
       return StorageChecksumAlgorithm::StorageCrc64;
     }
-    return g_AlgorithmDefaultsTo;
+    return StorageChecksumAlgorithm::None;
   }
 
   namespace {
@@ -105,10 +94,6 @@ namespace Azure { namespace Storage { namespace _internal {
         const UploadTransferValidationOptions& operationLevelOptions,
         const Nullable<ContentHash>& legacyOperationLevelOptions)
     {
-      if (operationLevelOptions.ChecksumAlgorithm == StorageChecksumAlgorithm::None)
-      {
-        return std::make_pair(StorageChecksumAlgorithm::None, std::vector<uint8_t>());
-      }
       if (operationLevelOptions.ChecksumAlgorithm == StorageChecksumAlgorithm::Md5)
       {
         return std::make_pair(
@@ -118,10 +103,6 @@ namespace Azure { namespace Storage { namespace _internal {
       {
         return std::make_pair(
             StorageChecksumAlgorithm::StorageCrc64, operationLevelOptions.PrecalculatedChecksum);
-      }
-      if (clientLevelOptions.Upload.ChecksumAlgorithm == StorageChecksumAlgorithm::None)
-      {
-        return std::make_pair(StorageChecksumAlgorithm::None, std::vector<uint8_t>());
       }
       if (clientLevelOptions.Upload.ChecksumAlgorithm == StorageChecksumAlgorithm::Md5)
       {
@@ -153,7 +134,7 @@ namespace Azure { namespace Storage { namespace _internal {
         return std::make_pair(
             StorageChecksumAlgorithm::StorageCrc64, legacyOperationLevelOptions.Value().Value);
       }
-      return std::make_pair(g_AlgorithmDefaultsTo, std::vector<uint8_t>());
+      return std::make_pair(StorageChecksumAlgorithm::None, std::vector<uint8_t>());
     }
   } // namespace
 
