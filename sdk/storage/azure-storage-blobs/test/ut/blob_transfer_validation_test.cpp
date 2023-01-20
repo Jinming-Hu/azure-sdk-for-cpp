@@ -170,14 +170,14 @@ namespace Azure { namespace Storage { namespace Test {
     uploadOptions.TransactionalContentHash = ContentHash();
     uploadOptions.TransactionalContentHash.Value().Algorithm = HashAlgorithm::Md5;
     uploadOptions.TransactionalContentHash.Value().Value = Core::Convert::Base64Decode(DummyMd5);
-    EXPECT_NO_THROW(blobClient.Upload(bodyStream, uploadOptions));
+    EXPECT_THROW(blobClient.Upload(bodyStream, uploadOptions), StorageException);
 
     reset();
     uploadOptions.TransferValidation.ChecksumAlgorithm = StorageChecksumAlgorithm::None;
     uploadOptions.TransactionalContentHash = ContentHash();
     uploadOptions.TransactionalContentHash.Value().Algorithm = HashAlgorithm::Crc64;
     uploadOptions.TransactionalContentHash.Value().Value = Core::Convert::Base64Decode(DummyCrc64);
-    EXPECT_NO_THROW(blobClient.Upload(bodyStream, uploadOptions));
+    EXPECT_THROW(blobClient.Upload(bodyStream, uploadOptions), StorageException);
 
     reset();
     uploadOptions.TransferValidation.ChecksumAlgorithm = StorageChecksumAlgorithm::Md5;
@@ -439,7 +439,7 @@ namespace Azure { namespace Storage { namespace Test {
     stageBlockOptions.TransactionalContentHash.Value().Algorithm = HashAlgorithm::Md5;
     stageBlockOptions.TransactionalContentHash.Value().Value
         = Core::Convert::Base64Decode(DummyMd5);
-    EXPECT_NO_THROW(blobClient.StageBlock(blockId, bodyStream, stageBlockOptions));
+    EXPECT_THROW(blobClient.StageBlock(blockId, bodyStream, stageBlockOptions), StorageException);
 
     reset();
     stageBlockOptions.TransferValidation.ChecksumAlgorithm = StorageChecksumAlgorithm::None;
@@ -447,7 +447,7 @@ namespace Azure { namespace Storage { namespace Test {
     stageBlockOptions.TransactionalContentHash.Value().Algorithm = HashAlgorithm::Crc64;
     stageBlockOptions.TransactionalContentHash.Value().Value
         = Core::Convert::Base64Decode(DummyCrc64);
-    EXPECT_NO_THROW(blobClient.StageBlock(blockId, bodyStream, stageBlockOptions));
+    EXPECT_THROW(blobClient.StageBlock(blockId, bodyStream, stageBlockOptions), StorageException);
 
     reset();
     stageBlockOptions.TransferValidation.ChecksumAlgorithm = StorageChecksumAlgorithm::Md5;
@@ -553,14 +553,14 @@ namespace Azure { namespace Storage { namespace Test {
     uploadOptions.TransactionalContentHash = ContentHash();
     uploadOptions.TransactionalContentHash.Value().Algorithm = HashAlgorithm::Md5;
     uploadOptions.TransactionalContentHash.Value().Value = Core::Convert::Base64Decode(DummyMd5);
-    EXPECT_NO_THROW(blobClient.AppendBlock(bodyStream, uploadOptions));
+    EXPECT_THROW(blobClient.AppendBlock(bodyStream, uploadOptions), StorageException);
 
     reset();
     uploadOptions.TransferValidation.ChecksumAlgorithm = StorageChecksumAlgorithm::None;
     uploadOptions.TransactionalContentHash = ContentHash();
     uploadOptions.TransactionalContentHash.Value().Algorithm = HashAlgorithm::Crc64;
     uploadOptions.TransactionalContentHash.Value().Value = Core::Convert::Base64Decode(DummyCrc64);
-    EXPECT_NO_THROW(blobClient.AppendBlock(bodyStream, uploadOptions));
+    EXPECT_THROW(blobClient.AppendBlock(bodyStream, uploadOptions), StorageException);
 
     reset();
     uploadOptions.TransferValidation.ChecksumAlgorithm = StorageChecksumAlgorithm::Md5;
@@ -659,14 +659,14 @@ namespace Azure { namespace Storage { namespace Test {
     uploadOptions.TransactionalContentHash = ContentHash();
     uploadOptions.TransactionalContentHash.Value().Algorithm = HashAlgorithm::Md5;
     uploadOptions.TransactionalContentHash.Value().Value = Core::Convert::Base64Decode(DummyMd5);
-    EXPECT_NO_THROW(blobClient.UploadPages(0, bodyStream, uploadOptions));
+    EXPECT_THROW(blobClient.UploadPages(0, bodyStream, uploadOptions), StorageException);
 
     reset();
     uploadOptions.TransferValidation.ChecksumAlgorithm = StorageChecksumAlgorithm::None;
     uploadOptions.TransactionalContentHash = ContentHash();
     uploadOptions.TransactionalContentHash.Value().Algorithm = HashAlgorithm::Crc64;
     uploadOptions.TransactionalContentHash.Value().Value = Core::Convert::Base64Decode(DummyCrc64);
-    EXPECT_NO_THROW(blobClient.UploadPages(0, bodyStream, uploadOptions));
+    EXPECT_THROW(blobClient.UploadPages(0, bodyStream, uploadOptions), StorageException);
 
     reset();
     uploadOptions.TransferValidation.ChecksumAlgorithm = StorageChecksumAlgorithm::Md5;
