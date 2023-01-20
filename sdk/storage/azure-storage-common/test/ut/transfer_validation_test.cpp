@@ -47,39 +47,89 @@ namespace Azure { namespace Storage { namespace Test {
      * |   18 | Set       | Set    | Set    |
      */
 
-    // operation-level overrides client-level
-    // This covers Cases 1, 2, 3, 7, 8, 9, 10, 11, 12, 16, 17, 18
-    for (auto clientLevelAlgorithm :
-         {StorageChecksumAlgorithm::Auto,
-          StorageChecksumAlgorithm::None,
-          StorageChecksumAlgorithm::Md5,
-          StorageChecksumAlgorithm::StorageCrc64})
+    // both are None, respect legacy
+    // This socvers Case 1, 10
     {
-      for (auto operationLevelAlgorithm :
-           {StorageChecksumAlgorithm::None,
-            StorageChecksumAlgorithm::Md5,
-            StorageChecksumAlgorithm::StorageCrc64})
-      {
-        reset();
-        clientLevelOptions.Download.ChecksumAlgorithm = clientLevelAlgorithm;
-        operationLevelOptions.ChecksumAlgorithm = operationLevelAlgorithm;
-        auto algorithm = _internal::GetChecksumAlgorithmForDownloadOperation(
-            clientLevelOptions, operationLevelOptions, legacyOptions);
-        EXPECT_EQ(algorithm, operationLevelAlgorithm);
+      reset();
+      clientLevelOptions.Download.ChecksumAlgorithm = StorageChecksumAlgorithm::None;
+      operationLevelOptions.ChecksumAlgorithm = StorageChecksumAlgorithm::None;
+      auto algorithm = _internal::GetChecksumAlgorithmForDownloadOperation(
+          clientLevelOptions, operationLevelOptions, legacyOptions);
+      EXPECT_EQ(algorithm, StorageChecksumAlgorithm::None);
+      clientLevelOptions.Download.ChecksumAlgorithm = StorageChecksumAlgorithm::None;
+      operationLevelOptions.ChecksumAlgorithm = StorageChecksumAlgorithm::None;
+      legacyOptions = HashAlgorithm::Md5;
+      algorithm = _internal::GetChecksumAlgorithmForDownloadOperation(
+          clientLevelOptions, operationLevelOptions, legacyOptions);
+      EXPECT_EQ(algorithm, StorageChecksumAlgorithm::Md5);
+    }
 
-        legacyOptions = HashAlgorithm::Md5;
-        algorithm = _internal::GetChecksumAlgorithmForDownloadOperation(
-            clientLevelOptions, operationLevelOptions, legacyOptions);
-        EXPECT_EQ(algorithm, operationLevelAlgorithm);
-      }
+    // operation-level is None, client-level is Auto
+    // This covers Case 2, 11
+    {
+      reset();
+      clientLevelOptions.Download.ChecksumAlgorithm = StorageChecksumAlgorithm::Auto;
+      operationLevelOptions.ChecksumAlgorithm = StorageChecksumAlgorithm::None;
+      auto algorithm = _internal::GetChecksumAlgorithmForDownloadOperation(
+          clientLevelOptions, operationLevelOptions, legacyOptions);
+      EXPECT_EQ(algorithm, StorageChecksumAlgorithm::None);
+      clientLevelOptions.Download.ChecksumAlgorithm = StorageChecksumAlgorithm::None;
+      operationLevelOptions.ChecksumAlgorithm = StorageChecksumAlgorithm::None;
+      legacyOptions = HashAlgorithm::Md5;
+      algorithm = _internal::GetChecksumAlgorithmForDownloadOperation(
+          clientLevelOptions, operationLevelOptions, legacyOptions);
+      EXPECT_EQ(algorithm, StorageChecksumAlgorithm::Md5);
+    }
+
+    // operation-level is None, respect client-level
+    // This covers Case 3, 12
+    for (auto clientLevelAlgorithm :
+         {StorageChecksumAlgorithm::Md5, StorageChecksumAlgorithm::StorageCrc64})
+    {
+      reset();
+      clientLevelOptions.Download.ChecksumAlgorithm = clientLevelAlgorithm;
+      operationLevelOptions.ChecksumAlgorithm = StorageChecksumAlgorithm::None;
+      auto algorithm = _internal::GetChecksumAlgorithmForDownloadOperation(
+          clientLevelOptions, operationLevelOptions, legacyOptions);
+      EXPECT_EQ(algorithm, clientLevelAlgorithm);
+
+      legacyOptions = HashAlgorithm::Md5;
+      algorithm = _internal::GetChecksumAlgorithmForDownloadOperation(
+          clientLevelOptions, operationLevelOptions, legacyOptions);
+      EXPECT_EQ(algorithm, clientLevelAlgorithm);
+    }
+
+    // operation-level is Auto, client level is None
+    // This covers Case 4, 13
+    {
+      reset();
+      clientLevelOptions.Download.ChecksumAlgorithm = StorageChecksumAlgorithm::None;
+      operationLevelOptions.ChecksumAlgorithm = StorageChecksumAlgorithm::Auto;
+      auto algorithm = _internal::GetChecksumAlgorithmForDownloadOperation(
+          clientLevelOptions, operationLevelOptions, legacyOptions);
+      EXPECT_EQ(algorithm, StorageChecksumAlgorithm::None);
+
+      legacyOptions = HashAlgorithm::Crc64;
+      algorithm = _internal::GetChecksumAlgorithmForDownloadOperation(
+          clientLevelOptions, operationLevelOptions, legacyOptions);
+      EXPECT_EQ(algorithm, StorageChecksumAlgorithm::StorageCrc64);
+    }
+
+    // both operation-level and client-level are auto, with legacy unset
+    // This covers Case 5
+    {
+      reset();
+      clientLevelOptions.Download.ChecksumAlgorithm = StorageChecksumAlgorithm::Auto;
+      operationLevelOptions.ChecksumAlgorithm = StorageChecksumAlgorithm::Auto;
+      auto algorithm = _internal::GetChecksumAlgorithmForDownloadOperation(
+          clientLevelOptions, operationLevelOptions, legacyOptions);
+      EXPECT_EQ(algorithm, StorageChecksumAlgorithm::None);
     }
 
     // operation-level is auto, respect client-level
-    // This covers Cases 4, 6, 13, 15
+    // This covers Cases 6, 15
     for (auto clientLevelAlgorithm :
-         {StorageChecksumAlgorithm::None,
-          StorageChecksumAlgorithm::Md5,
-          StorageChecksumAlgorithm::StorageCrc64})
+         {StorageChecksumAlgorithm::Md5, StorageChecksumAlgorithm::StorageCrc64})
     {
       reset();
       clientLevelOptions.Download.ChecksumAlgorithm = clientLevelAlgorithm;
@@ -94,15 +144,29 @@ namespace Azure { namespace Storage { namespace Test {
       EXPECT_EQ(algorithm, clientLevelAlgorithm);
     }
 
-    // both operation-level and client-level are auto, with legacy unset
-    // This covers Case 5
+    // operation-level overrides client-level
+    // This covers Cases 7, 8, 9, 16, 17, 18
+    for (auto clientLevelAlgorithm :
+         {StorageChecksumAlgorithm::Auto,
+          StorageChecksumAlgorithm::None,
+          StorageChecksumAlgorithm::Md5,
+          StorageChecksumAlgorithm::StorageCrc64})
     {
-      reset();
-      clientLevelOptions.Download.ChecksumAlgorithm = StorageChecksumAlgorithm::Auto;
-      operationLevelOptions.ChecksumAlgorithm = StorageChecksumAlgorithm::Auto;
-      auto algorithm = _internal::GetChecksumAlgorithmForDownloadOperation(
-          clientLevelOptions, operationLevelOptions, legacyOptions);
-      EXPECT_EQ(algorithm, StorageChecksumAlgorithm::None);
+      for (auto operationLevelAlgorithm :
+           {StorageChecksumAlgorithm::Md5, StorageChecksumAlgorithm::StorageCrc64})
+      {
+        reset();
+        clientLevelOptions.Download.ChecksumAlgorithm = clientLevelAlgorithm;
+        operationLevelOptions.ChecksumAlgorithm = operationLevelAlgorithm;
+        auto algorithm = _internal::GetChecksumAlgorithmForDownloadOperation(
+            clientLevelOptions, operationLevelOptions, legacyOptions);
+        EXPECT_EQ(algorithm, operationLevelAlgorithm);
+
+        legacyOptions = HashAlgorithm::Md5;
+        algorithm = _internal::GetChecksumAlgorithmForDownloadOperation(
+            clientLevelOptions, operationLevelOptions, legacyOptions);
+        EXPECT_EQ(algorithm, operationLevelAlgorithm);
+      }
     }
 
     // both operation-level and client-level are auto, with legacy set
@@ -156,7 +220,8 @@ namespace Azure { namespace Storage { namespace Test {
       ContentHash hash;
       hash.Algorithm = HashAlgorithm::Md5;
       hash.Value = md5;
-      auto innerBodyStream = std::make_unique<Core::IO::MemoryBodyStream>(buffer.data(), buffer.size());
+      auto innerBodyStream
+          = std::make_unique<Core::IO::MemoryBodyStream>(buffer.data(), buffer.size());
       _internal::ChecksumBodyStream checksumBodyStream(std::move(innerBodyStream), hash);
       EXPECT_EQ(checksumBodyStream.Length(), buffer.size());
       auto content = checksumBodyStream.ReadToEnd();
@@ -289,8 +354,153 @@ namespace Azure { namespace Storage { namespace Test {
      * |   18 | Set       | Set    | Set    |
      */
 
+    // Both are None
+    // This covers Case 1, 10
+    {
+      reset();
+      clientLevelOptions.Upload.ChecksumAlgorithm = StorageChecksumAlgorithm::None;
+      operationLevelOptions.ChecksumAlgorithm = StorageChecksumAlgorithm::None;
+      auto ret = verify(clientLevelOptions, operationLevelOptions, legacyOptions);
+      EXPECT_EQ(ret.first, StorageChecksumAlgorithm::None);
+      EXPECT_TRUE(ret.second.empty());
+      legacyOptions = ContentHash();
+      legacyOptions.Value().Algorithm = HashAlgorithm::Md5;
+      legacyOptions.Value().Value = Core::Convert::Base64Decode(DummyMd5);
+      ret = verify(clientLevelOptions, operationLevelOptions, legacyOptions);
+      EXPECT_EQ(ret.first, StorageChecksumAlgorithm::Md5);
+      EXPECT_EQ(ret.second, legacyOptions.Value().Value);
+    }
+
+    // operation-level is None, client-level is Auto
+    // This covers Case 2, 11
+    {
+      reset();
+      clientLevelOptions.Upload.ChecksumAlgorithm = StorageChecksumAlgorithm::Auto;
+      operationLevelOptions.ChecksumAlgorithm = StorageChecksumAlgorithm::None;
+      auto ret = verify(clientLevelOptions, operationLevelOptions, legacyOptions);
+      EXPECT_EQ(ret.first, StorageChecksumAlgorithm::None);
+      EXPECT_TRUE(ret.second.empty());
+      legacyOptions = ContentHash();
+      legacyOptions.Value().Algorithm = HashAlgorithm::Md5;
+      legacyOptions.Value().Value = Core::Convert::Base64Decode(DummyMd5);
+      ret = verify(clientLevelOptions, operationLevelOptions, legacyOptions);
+      EXPECT_EQ(ret.first, StorageChecksumAlgorithm::Md5);
+      EXPECT_EQ(ret.second, legacyOptions.Value().Value);
+    }
+
+    // operation-level is None, client-level is set
+    // This covers Case 3, 12
+    for (auto clientLevelAlgorithm :
+         {StorageChecksumAlgorithm::Md5, StorageChecksumAlgorithm::StorageCrc64})
+    {
+      reset();
+      clientLevelOptions.Upload.ChecksumAlgorithm = clientLevelAlgorithm;
+      operationLevelOptions.ChecksumAlgorithm = StorageChecksumAlgorithm::None;
+      auto ret = verify(clientLevelOptions, operationLevelOptions, legacyOptions);
+      EXPECT_EQ(ret.first, clientLevelAlgorithm);
+      if (clientLevelAlgorithm == StorageChecksumAlgorithm::Md5)
+      {
+        EXPECT_EQ(ret.second, md5);
+      }
+      else if (clientLevelAlgorithm == StorageChecksumAlgorithm::StorageCrc64)
+      {
+        EXPECT_EQ(ret.second, crc64);
+      }
+
+      legacyOptions = ContentHash();
+      legacyOptions.Value().Algorithm = HashAlgorithm::Md5;
+      legacyOptions.Value().Value = Core::Convert::Base64Decode(DummyMd5);
+      ret = verify(clientLevelOptions, operationLevelOptions, legacyOptions);
+      EXPECT_EQ(ret.first, clientLevelAlgorithm);
+      if (clientLevelAlgorithm == StorageChecksumAlgorithm::Md5)
+      {
+        EXPECT_EQ(ret.second, legacyOptions.Value().Value);
+      }
+      else if (clientLevelAlgorithm == StorageChecksumAlgorithm::StorageCrc64)
+      {
+        EXPECT_EQ(ret.second, crc64);
+      }
+
+      legacyOptions.Value().Algorithm = HashAlgorithm::Crc64;
+      legacyOptions.Value().Value = Core::Convert::Base64Decode(DummyCrc64);
+      ret = verify(clientLevelOptions, operationLevelOptions, legacyOptions);
+      EXPECT_EQ(ret.first, clientLevelAlgorithm);
+      if (clientLevelAlgorithm == StorageChecksumAlgorithm::Md5)
+      {
+        EXPECT_EQ(ret.second, md5);
+      }
+      else if (clientLevelAlgorithm == StorageChecksumAlgorithm::StorageCrc64)
+      {
+        EXPECT_EQ(ret.second, legacyOptions.Value().Value);
+      }
+    }
+
+    // operation-level is auto, respect client-level
+    // This covers Cases 4, 6, 13, 15
+    for (auto clientLevelAlgorithm :
+         {StorageChecksumAlgorithm::None,
+          StorageChecksumAlgorithm::Md5,
+          StorageChecksumAlgorithm::StorageCrc64})
+    {
+      reset();
+      clientLevelOptions.Upload.ChecksumAlgorithm = clientLevelAlgorithm;
+      operationLevelOptions.ChecksumAlgorithm = StorageChecksumAlgorithm::Auto;
+      auto ret = verify(clientLevelOptions, operationLevelOptions, legacyOptions);
+      EXPECT_EQ(ret.first, clientLevelAlgorithm);
+      if (ret.first == StorageChecksumAlgorithm::Md5)
+      {
+        EXPECT_EQ(ret.second, md5);
+      }
+      else if (ret.first == StorageChecksumAlgorithm::StorageCrc64)
+      {
+        EXPECT_EQ(ret.second, crc64);
+      }
+      else if (ret.first == StorageChecksumAlgorithm::None)
+      {
+        EXPECT_TRUE(ret.second.empty());
+      }
+
+      if (clientLevelAlgorithm == StorageChecksumAlgorithm::Md5)
+      {
+        legacyOptions = ContentHash();
+        legacyOptions.Value().Algorithm = HashAlgorithm::Md5;
+        legacyOptions.Value().Value = Core::Convert::Base64Decode(DummyMd5);
+      }
+      else if (clientLevelAlgorithm == StorageChecksumAlgorithm::StorageCrc64)
+      {
+        legacyOptions = ContentHash();
+        legacyOptions.Value().Algorithm = HashAlgorithm::Crc64;
+        legacyOptions.Value().Value = Core::Convert::Base64Decode(DummyCrc64);
+      }
+      ret = verify(clientLevelOptions, operationLevelOptions, legacyOptions);
+      EXPECT_EQ(ret.first, clientLevelAlgorithm);
+      if (ret.first == StorageChecksumAlgorithm::Md5)
+      {
+        EXPECT_EQ(ret.second, Core::Convert::Base64Decode(DummyMd5));
+      }
+      else if (ret.first == StorageChecksumAlgorithm::StorageCrc64)
+      {
+        EXPECT_EQ(ret.second, Core::Convert::Base64Decode(DummyCrc64));
+      }
+      else if (ret.first == StorageChecksumAlgorithm::None)
+      {
+        EXPECT_TRUE(ret.second.empty());
+      }
+    }
+
+    // both operation-level and client-level are auto, with legacy unset
+    // This covers Case 5
+    {
+      reset();
+      clientLevelOptions.Upload.ChecksumAlgorithm = StorageChecksumAlgorithm::Auto;
+      operationLevelOptions.ChecksumAlgorithm = StorageChecksumAlgorithm::Auto;
+      auto ret = verify(clientLevelOptions, operationLevelOptions, legacyOptions);
+      EXPECT_EQ(ret.first, StorageChecksumAlgorithm::None);
+      EXPECT_TRUE(ret.second.empty());
+    }
+
     // operation-level overrides client-level
-    // This covers Cases 1, 2, 3, 7, 8, 9, 10, 11, 12, 16, 17, 18
+    // This covers Cases 7, 8, 9, 16, 17, 18
     for (auto clientLevelAlgorithm :
          {StorageChecksumAlgorithm::Auto,
           StorageChecksumAlgorithm::None,
@@ -298,9 +508,7 @@ namespace Azure { namespace Storage { namespace Test {
           StorageChecksumAlgorithm::StorageCrc64})
     {
       for (auto operationLevelAlgorithm :
-           {StorageChecksumAlgorithm::None,
-            StorageChecksumAlgorithm::Md5,
-            StorageChecksumAlgorithm::StorageCrc64})
+           {StorageChecksumAlgorithm::Md5, StorageChecksumAlgorithm::StorageCrc64})
       {
         reset();
         clientLevelOptions.Upload.ChecksumAlgorithm = clientLevelAlgorithm;
@@ -377,70 +585,6 @@ namespace Azure { namespace Storage { namespace Test {
           EXPECT_TRUE(ret.second.empty());
         }
       }
-    }
-
-    // operation-level is auto, respect client-level
-    // This covers Cases 4, 6, 13, 15
-    for (auto clientLevelAlgorithm :
-         {StorageChecksumAlgorithm::None,
-          StorageChecksumAlgorithm::Md5,
-          StorageChecksumAlgorithm::StorageCrc64})
-    {
-      reset();
-      clientLevelOptions.Upload.ChecksumAlgorithm = clientLevelAlgorithm;
-      operationLevelOptions.ChecksumAlgorithm = StorageChecksumAlgorithm::Auto;
-      auto ret = verify(clientLevelOptions, operationLevelOptions, legacyOptions);
-      EXPECT_EQ(ret.first, clientLevelAlgorithm);
-      if (ret.first == StorageChecksumAlgorithm::Md5)
-      {
-        EXPECT_EQ(ret.second, md5);
-      }
-      else if (ret.first == StorageChecksumAlgorithm::StorageCrc64)
-      {
-        EXPECT_EQ(ret.second, crc64);
-      }
-      else if (ret.first == StorageChecksumAlgorithm::None)
-      {
-        EXPECT_TRUE(ret.second.empty());
-      }
-
-      if (clientLevelAlgorithm == StorageChecksumAlgorithm::Md5)
-      {
-        legacyOptions = ContentHash();
-        legacyOptions.Value().Algorithm = HashAlgorithm::Md5;
-        legacyOptions.Value().Value = Core::Convert::Base64Decode(DummyMd5);
-      }
-      else if (clientLevelAlgorithm == StorageChecksumAlgorithm::StorageCrc64)
-      {
-        legacyOptions = ContentHash();
-        legacyOptions.Value().Algorithm = HashAlgorithm::Crc64;
-        legacyOptions.Value().Value = Core::Convert::Base64Decode(DummyCrc64);
-      }
-      ret = verify(clientLevelOptions, operationLevelOptions, legacyOptions);
-      EXPECT_EQ(ret.first, clientLevelAlgorithm);
-      if (ret.first == StorageChecksumAlgorithm::Md5)
-      {
-        EXPECT_EQ(ret.second, Core::Convert::Base64Decode(DummyMd5));
-      }
-      else if (ret.first == StorageChecksumAlgorithm::StorageCrc64)
-      {
-        EXPECT_EQ(ret.second, Core::Convert::Base64Decode(DummyCrc64));
-      }
-      else if (ret.first == StorageChecksumAlgorithm::None)
-      {
-        EXPECT_TRUE(ret.second.empty());
-      }
-    }
-
-    // both operation-level and client-level are auto, with legacy unset
-    // This covers Case 5
-    {
-      reset();
-      clientLevelOptions.Upload.ChecksumAlgorithm = StorageChecksumAlgorithm::Auto;
-      operationLevelOptions.ChecksumAlgorithm = StorageChecksumAlgorithm::Auto;
-      auto ret = verify(clientLevelOptions, operationLevelOptions, legacyOptions);
-      EXPECT_EQ(ret.first, StorageChecksumAlgorithm::None);
-      EXPECT_TRUE(ret.second.empty());
     }
 
     // both operation-level and client-level are auto, with legacy set
