@@ -329,6 +329,23 @@ namespace Azure { namespace Storage { namespace Blobs {
     firstChunkOptions.TransferValidation.ChecksumAlgorithm = checksumAlgorithm;
     firstChunkOptions.TransferValidation.AutoValidateChecksum = false;
 
+    if (checksumAlgorithm != StorageChecksumAlgorithm::None && !firstChunkOptions.Range.HasValue())
+    {
+      auto blobProperties = GetProperties();
+      if (blobProperties.Value.BlobSize == 0)
+      {
+        firstChunkOptions.AccessConditions.IfMatch = blobProperties.Value.ETag;
+        firstChunkOptions.TransferValidation.ChecksumAlgorithm = StorageChecksumAlgorithm::None;
+      }
+      else
+      {
+        firstChunkOptions.Range = Azure::Core::Http::HttpRange();
+        firstChunkOptions.Range.Value().Offset = 0;
+        firstChunkOptions.Range.Value().Length
+            = std::min(blobProperties.Value.BlobSize, options.TransferOptions.InitialChunkSize);
+      }
+    }
+
     auto firstChunk = Download(firstChunkOptions, context);
     const Azure::ETag eTag = firstChunk.Value.Details.ETag;
 

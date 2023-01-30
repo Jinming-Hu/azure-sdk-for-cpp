@@ -90,27 +90,59 @@ namespace Azure { namespace Storage { namespace Test {
     EXPECT_NO_THROW(blobClientWithModifiedContentHash.Download(downloadOptions));
   }
 
-  // TEST_F(BlockBlobClientTest, DownloadToBufferTransferValidation) {
-  //   auto blobClient = GetBlockBlobClient("aaaa");
-  //   auto buffer = RandomBuffer(100);
-  //   blobClient.UploadFrom(buffer.data(), buffer.size());
-  //
-  //   Blobs::DownloadBlobToOptions downloadOptions;
-  //   downloadOptions.TransferOptions.InitialChunkSize = 10;
-  //   downloadOptions.TransferOptions.ChunkSize = 15;
-  //   for (auto algo :
-  //        {StorageChecksumAlgorithm::Auto,
-  //         StorageChecksumAlgorithm::None,
-  //         StorageChecksumAlgorithm::Md5,
-  //         StorageChecksumAlgorithm::StorageCrc64})
-  //   {
-  //     downloadOptions.TransferValidation.ChecksumAlgorithm = algo;
-  //     downloadOptions.TransferValidation.AutoValidateChecksum = false;
-  //     std::vector<uint8_t> tempBuffer;
-  //     tempBuffer.resize(buffer.size());
-  //     blobClient.DownloadTo(tempBuffer.data(), tempBuffer.size(), downloadOptions);
-  //   }
-  // }
+  TEST_F(BlockBlobClientTest, DownloadToBufferTransferValidation)
+  {
+    // TODO: download to file, blob is empty, blob not empty but download range is empty
+    auto blobClient = GetBlockBlobClient("aaaa");
+    auto buffer = RandomBuffer(100);
+    blobClient.UploadFrom(buffer.data(), buffer.size());
+
+    auto clientOptions = Blobs::BlobClientOptions();
+    clientOptions.PerOperationPolicies.push_back(
+        std::make_unique<ModifyTransactioalHashHeaderPolicy>());
+    auto blobClientWithModifiedContentHash
+        = Blobs::BlockBlobClient(blobClient.GetUrl() + GetSas(), clientOptions);
+
+    Blobs::DownloadBlobToOptions downloadOptions;
+    downloadOptions.TransferOptions.InitialChunkSize = 10;
+    downloadOptions.TransferOptions.ChunkSize = 15;
+    for (auto algo :
+         {StorageChecksumAlgorithm::Auto,
+          StorageChecksumAlgorithm::None,
+          StorageChecksumAlgorithm::Md5,
+          StorageChecksumAlgorithm::StorageCrc64})
+    {
+      downloadOptions.Range.Reset();
+
+      downloadOptions.TransferValidation.ChecksumAlgorithm = algo;
+      downloadOptions.TransferValidation.AutoValidateChecksum = true;
+      std::vector<uint8_t> tempBuffer;
+      tempBuffer.resize(buffer.size());
+      EXPECT_NO_THROW(blobClient.DownloadTo(tempBuffer.data(), tempBuffer.size(), downloadOptions));
+      if (algo == StorageChecksumAlgorithm::Md5 || algo == StorageChecksumAlgorithm::StorageCrc64)
+      {
+        EXPECT_THROW(
+            blobClientWithModifiedContentHash.DownloadTo(
+                tempBuffer.data(), tempBuffer.size(), downloadOptions),
+            std::runtime_error);
+      }
+      else
+      {
+        EXPECT_NO_THROW(blobClientWithModifiedContentHash.DownloadTo(
+            tempBuffer.data(), tempBuffer.size(), downloadOptions));
+      }
+
+      downloadOptions.TransferValidation.AutoValidateChecksum = false;
+      EXPECT_NO_THROW(blobClientWithModifiedContentHash.DownloadTo(
+          tempBuffer.data(), tempBuffer.size(), downloadOptions));
+
+      downloadOptions.Range = Azure::Core::Http::HttpRange();
+      downloadOptions.Range.Value().Offset = 5;
+      EXPECT_NO_THROW(blobClient.DownloadTo(tempBuffer.data(), tempBuffer.size(), downloadOptions));
+      downloadOptions.Range.Value().Length = 20;
+      EXPECT_NO_THROW(blobClient.DownloadTo(tempBuffer.data(), tempBuffer.size(), downloadOptions));
+    }
+  }
 
   TEST_F(BlockBlobClientTest, UploadTransferValidation)
   {
