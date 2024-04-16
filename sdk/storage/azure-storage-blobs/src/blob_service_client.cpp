@@ -9,10 +9,8 @@
 #include <azure/core/http/policies/policy.hpp>
 #include <azure/storage/common/crypt.hpp>
 #include <azure/storage/common/internal/constants.hpp>
-#include <azure/storage/common/internal/shared_key_policy.hpp>
 #include <azure/storage/common/internal/storage_bearer_token_auth.hpp>
-#include <azure/storage/common/internal/storage_per_retry_policy.hpp>
-#include <azure/storage/common/internal/storage_service_version_policy.hpp>
+#include <azure/storage/common/internal/storage_pipeline.hpp>
 #include <azure/storage/common/internal/storage_switch_to_secondary_policy.hpp>
 #include <azure/storage/common/storage_common.hpp>
 
@@ -42,30 +40,24 @@ namespace Azure { namespace Storage { namespace Blobs {
       const BlobClientOptions& options)
       : BlobServiceClient(serviceUrl, options)
   {
-    BlobClientOptions newOptions = options;
-    auto sharedKeyPolicy = std::make_unique<_internal::SharedKeyPolicy>(credential);
-    newOptions.PerRetryPolicies.emplace_back(sharedKeyPolicy->Clone());
+    _internal::StorageHttpPipelineOptions serviceOptions;
+    serviceOptions.SharedKeyCredential = credential;
+    if (!options.SecondaryHostForRetryReads.empty())
+    {
+      serviceOptions.PrimaryHost = m_serviceUrl.GetHost();
+      serviceOptions.SecondaryHostForRetryReads = options.SecondaryHostForRetryReads;
+    }
 
-    std::vector<std::unique_ptr<Azure::Core::Http::Policies::HttpPolicy>> perRetryPolicies;
-    std::vector<std::unique_ptr<Azure::Core::Http::Policies::HttpPolicy>> perOperationPolicies;
-    perRetryPolicies.emplace_back(std::make_unique<_internal::StorageSwitchToSecondaryPolicy>(
-        m_serviceUrl.GetHost(), newOptions.SecondaryHostForRetryReads));
-    perRetryPolicies.emplace_back(std::make_unique<_internal::StoragePerRetryPolicy>());
-    perOperationPolicies.emplace_back(
-        std::make_unique<_internal::StorageServiceVersionPolicy>(newOptions.ApiVersion));
-
-    m_batchRequestPipeline
-        = _detail::ConstructBatchRequestPolicy(perRetryPolicies, perOperationPolicies, newOptions);
-
-    m_batchSubrequestPipeline
-        = _detail::ConstructBatchSubrequestPolicy(nullptr, std::move(sharedKeyPolicy), options);
-
-    m_pipeline = std::make_shared<Azure::Core::Http::_internal::HttpPipeline>(
-        newOptions,
+    m_pipeline = _internal::BuildStorageHttpPipeline(
+        options.ApiVersion,
         _internal::BlobServicePackageName,
         _detail::PackageVersion::ToString(),
-        std::move(perRetryPolicies),
-        std::move(perOperationPolicies));
+        serviceOptions,
+        options);
+
+    m_batchRequestPipeline = _detail::ConstructBatchRequestPipeline(nullptr, credential, options);
+    m_batchSubrequestPipeline
+        = _detail::ConstructBatchSubrequestPipeline(nullptr, credential, options);
   }
 
   BlobServiceClient::BlobServiceClient(
@@ -74,37 +66,41 @@ namespace Azure { namespace Storage { namespace Blobs {
       const BlobClientOptions& options)
       : BlobServiceClient(serviceUrl, options)
   {
-    std::vector<std::unique_ptr<Azure::Core::Http::Policies::HttpPolicy>> perRetryPolicies;
-    std::vector<std::unique_ptr<Azure::Core::Http::Policies::HttpPolicy>> perOperationPolicies;
-    perRetryPolicies.emplace_back(std::make_unique<_internal::StorageSwitchToSecondaryPolicy>(
-        m_serviceUrl.GetHost(), options.SecondaryHostForRetryReads));
-    perRetryPolicies.emplace_back(std::make_unique<_internal::StoragePerRetryPolicy>());
-    std::unique_ptr<Azure::Core::Http::Policies::HttpPolicy> tokenAuthPolicy;
+    _internal::StorageHttpPipelineOptions serviceOptions;
+    if (!options.SecondaryHostForRetryReads.empty())
+    {
+      serviceOptions.PrimaryHost = m_serviceUrl.GetHost();
+      serviceOptions.SecondaryHostForRetryReads = options.SecondaryHostForRetryReads;
+    }
+    serviceOptions.TokenCredential = credential;
+    serviceOptions.EnableTenantDiscovery = options.EnableTenantDiscovery;
+    if (options.Audience.HasValue())
+    {
+      serviceOptions.TokenAudience = options.Audience.Value().ToString();
+    }
+
+    m_pipeline = _internal::BuildStorageHttpPipeline(
+        options.ApiVersion,
+        _internal::BlobServicePackageName,
+        _detail::PackageVersion::ToString(),
+        serviceOptions,
+        options);
+
     {
       Azure::Core::Credentials::TokenRequestContext tokenContext;
       tokenContext.Scopes.emplace_back(
           options.Audience.HasValue()
               ? _internal::GetDefaultScopeForAudience(options.Audience.Value().ToString())
               : _internal::StorageScope);
-      tokenAuthPolicy = std::make_unique<_internal::StorageBearerTokenAuthenticationPolicy>(
-          credential, tokenContext, options.EnableTenantDiscovery);
-      perRetryPolicies.emplace_back(tokenAuthPolicy->Clone());
+      std::unique_ptr<Azure::Core::Http::Policies::HttpPolicy> tokenPolicy
+          = std::make_unique<_internal::StorageBearerTokenAuthenticationPolicy>(
+              credential, tokenContext, options.EnableTenantDiscovery);
+
+      m_batchRequestPipeline
+          = _detail::ConstructBatchRequestPipeline(tokenPolicy->Clone(), nullptr, options);
+      m_batchSubrequestPipeline
+          = _detail::ConstructBatchSubrequestPipeline(std::move(tokenPolicy), nullptr, options);
     }
-    perOperationPolicies.emplace_back(
-        std::make_unique<_internal::StorageServiceVersionPolicy>(options.ApiVersion));
-
-    m_batchRequestPipeline
-        = _detail::ConstructBatchRequestPolicy(perRetryPolicies, perOperationPolicies, options);
-
-    m_batchSubrequestPipeline
-        = _detail::ConstructBatchSubrequestPolicy(std::move(tokenAuthPolicy), nullptr, options);
-
-    m_pipeline = std::make_shared<Azure::Core::Http::_internal::HttpPipeline>(
-        options,
-        _internal::BlobServicePackageName,
-        _detail::PackageVersion::ToString(),
-        std::move(perRetryPolicies),
-        std::move(perOperationPolicies));
   }
 
   BlobServiceClient::BlobServiceClient(
@@ -113,25 +109,23 @@ namespace Azure { namespace Storage { namespace Blobs {
       : m_serviceUrl(serviceUrl), m_customerProvidedKey(options.CustomerProvidedKey),
         m_encryptionScope(options.EncryptionScope)
   {
-    std::vector<std::unique_ptr<Azure::Core::Http::Policies::HttpPolicy>> perRetryPolicies;
-    std::vector<std::unique_ptr<Azure::Core::Http::Policies::HttpPolicy>> perOperationPolicies;
-    perRetryPolicies.emplace_back(std::make_unique<_internal::StorageSwitchToSecondaryPolicy>(
-        m_serviceUrl.GetHost(), options.SecondaryHostForRetryReads));
-    perRetryPolicies.emplace_back(std::make_unique<_internal::StoragePerRetryPolicy>());
-    perOperationPolicies.emplace_back(
-        std::make_unique<_internal::StorageServiceVersionPolicy>(options.ApiVersion));
+    _internal::StorageHttpPipelineOptions serviceOptions;
+    if (!options.SecondaryHostForRetryReads.empty())
+    {
+      serviceOptions.PrimaryHost = m_serviceUrl.GetHost();
+      serviceOptions.SecondaryHostForRetryReads = options.SecondaryHostForRetryReads;
+    }
 
-    m_batchRequestPipeline
-        = _detail::ConstructBatchRequestPolicy(perRetryPolicies, perOperationPolicies, options);
-
-    m_batchSubrequestPipeline = _detail::ConstructBatchSubrequestPolicy(nullptr, nullptr, options);
-
-    m_pipeline = std::make_shared<Azure::Core::Http::_internal::HttpPipeline>(
-        options,
+    m_pipeline = _internal::BuildStorageHttpPipeline(
+        options.ApiVersion,
         _internal::BlobServicePackageName,
         _detail::PackageVersion::ToString(),
-        std::move(perRetryPolicies),
-        std::move(perOperationPolicies));
+        serviceOptions,
+        options);
+
+    m_batchRequestPipeline = _detail::ConstructBatchRequestPipeline(nullptr, nullptr, options);
+    m_batchSubrequestPipeline
+        = _detail::ConstructBatchSubrequestPipeline(nullptr, nullptr, options);
   }
 
   BlobContainerClient BlobServiceClient::GetBlobContainerClient(

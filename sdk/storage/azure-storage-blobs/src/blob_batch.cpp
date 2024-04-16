@@ -12,6 +12,7 @@
 #include <azure/storage/common/crypt.hpp>
 #include <azure/storage/common/internal/constants.hpp>
 #include <azure/storage/common/internal/shared_key_policy.hpp>
+#include <azure/storage/common/internal/storage_service_version_policy.hpp>
 
 #include <algorithm>
 #include <cstring>
@@ -494,13 +495,17 @@ namespace Azure { namespace Storage { namespace Blobs {
 
     BatchSubrequest::~BatchSubrequest() {}
 
-    std::shared_ptr<Azure::Core::Http::_internal::HttpPipeline> ConstructBatchRequestPolicy(
-        const std::vector<std::unique_ptr<Azure::Core::Http::Policies::HttpPolicy>>&
-            servicePerRetryPolicies,
-        const std::vector<std::unique_ptr<Azure::Core::Http::Policies::HttpPolicy>>&
-            servicePerOperationPolicies,
-        const BlobClientOptions& options)
+    std::shared_ptr<Azure::Core::Http::_internal::HttpPipeline> ConstructBatchRequestPipeline(
+        std::unique_ptr<Azure::Core::Http::Policies::HttpPolicy>&& tokenAuthPolicy,
+        std::shared_ptr<StorageSharedKeyCredential> sharedKeyCredential,
+        BlobClientOptions options)
     {
+      if (sharedKeyCredential)
+      {
+        auto sharedKeyAuthPolicy
+            = std::make_unique<_internal::SharedKeyPolicy>(sharedKeyCredential);
+        options.PerRetryPolicies.emplace_back(std::move(sharedKeyAuthPolicy));
+      }
       std::vector<std::unique_ptr<Azure::Core::Http::Policies::HttpPolicy>> perRetryPolicies;
       perRetryPolicies.push_back(std::make_unique<ConstructBatchRequestBodyPolicy>(
           [](Core::Http::Request& request, const Core::Context& context) {
@@ -509,15 +514,14 @@ namespace Azure { namespace Storage { namespace Blobs {
           [](std::unique_ptr<Core::Http::RawResponse>& rawResponse, const Core::Context& context) {
             ParseSubresponses(rawResponse, context);
           }));
-      for (auto& policy : servicePerRetryPolicies)
+      perRetryPolicies.emplace_back(std::make_unique<_internal::StoragePerRetryPolicy>());
+      if (tokenAuthPolicy)
       {
-        perRetryPolicies.push_back(policy->Clone());
+        perRetryPolicies.emplace_back(std::move(tokenAuthPolicy));
       }
       std::vector<std::unique_ptr<Azure::Core::Http::Policies::HttpPolicy>> perOperationPolicies;
-      for (auto& policy : servicePerOperationPolicies)
-      {
-        perOperationPolicies.push_back(policy->Clone());
-      }
+      perOperationPolicies.emplace_back(
+          std::make_unique<_internal::StorageServiceVersionPolicy>(options.ApiVersion));
       return std::make_shared<Azure::Core::Http::_internal::HttpPipeline>(
           options,
           _internal::BlobServicePackageName,
@@ -526,9 +530,9 @@ namespace Azure { namespace Storage { namespace Blobs {
           std::move(perOperationPolicies));
     }
 
-    std::shared_ptr<Azure::Core::Http::_internal::HttpPipeline> ConstructBatchSubrequestPolicy(
+    std::shared_ptr<Azure::Core::Http::_internal::HttpPipeline> ConstructBatchSubrequestPipeline(
         std::unique_ptr<Azure::Core::Http::Policies::HttpPolicy>&& tokenAuthPolicy,
-        std::unique_ptr<Azure::Core::Http::Policies::HttpPolicy>&& sharedKeyAuthPolicy,
+        std::shared_ptr<StorageSharedKeyCredential> sharedKeyCredential,
         const BlobClientOptions& options)
     {
       std::vector<std::unique_ptr<Azure::Core::Http::Policies::HttpPolicy>> policies;
@@ -551,8 +555,10 @@ namespace Azure { namespace Storage { namespace Blobs {
         policies.emplace_back(policy->Clone());
       }
       policies.emplace_back(std::make_unique<RemoveXMsVersionPolicy>());
-      if (sharedKeyAuthPolicy)
+      if (sharedKeyCredential)
       {
+        auto sharedKeyAuthPolicy
+            = std::make_unique<_internal::SharedKeyPolicy>(sharedKeyCredential);
         policies.emplace_back(std::move(sharedKeyAuthPolicy));
       }
       policies.push_back(std::make_unique<NoopTransportPolicy>());

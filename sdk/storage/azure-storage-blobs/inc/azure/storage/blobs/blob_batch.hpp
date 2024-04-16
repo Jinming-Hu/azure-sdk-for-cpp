@@ -53,16 +53,14 @@ namespace Azure { namespace Storage { namespace Blobs {
 
     class BlobBatchAccessHelper;
 
-    std::shared_ptr<Azure::Core::Http::_internal::HttpPipeline> ConstructBatchRequestPolicy(
-        const std::vector<std::unique_ptr<Azure::Core::Http::Policies::HttpPolicy>>&
-            servicePerRetryPolicies,
-        const std::vector<std::unique_ptr<Azure::Core::Http::Policies::HttpPolicy>>&
-            servicePerOperationPolicies,
-        const BlobClientOptions& options);
-
-    std::shared_ptr<Azure::Core::Http::_internal::HttpPipeline> ConstructBatchSubrequestPolicy(
+    std::shared_ptr<Azure::Core::Http::_internal::HttpPipeline> ConstructBatchRequestPipeline(
         std::unique_ptr<Azure::Core::Http::Policies::HttpPolicy>&& tokenAuthPolicy,
-        std::unique_ptr<Azure::Core::Http::Policies::HttpPolicy>&& sharedKeyAuthPolicy,
+        std::shared_ptr<StorageSharedKeyCredential> sharedKeyCredential,
+        BlobClientOptions options);
+
+    std::shared_ptr<Azure::Core::Http::_internal::HttpPipeline> ConstructBatchSubrequestPipeline(
+        std::unique_ptr<Azure::Core::Http::Policies::HttpPolicy>&& tokenAuthPolicy,
+        std::shared_ptr<StorageSharedKeyCredential> sharedKeyCredential,
         const BlobClientOptions& options);
   } // namespace _detail
 

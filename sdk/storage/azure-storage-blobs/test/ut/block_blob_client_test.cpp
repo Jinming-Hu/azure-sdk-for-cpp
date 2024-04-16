@@ -2155,4 +2155,17 @@ namespace Azure { namespace Storage { namespace Test {
         = Blobs::BlockBlobClient(m_blockBlobClient->GetUrl(), keyCredential, clientOptions);
     EXPECT_NO_THROW(blockBlobClient.GetProperties());
   }
+
+  TEST_F(BlockBlobClientTest, SyncCopyFromUriWithRetry_PLAYBACKONLY_)
+  {
+    auto sourceBlobClient = m_blobContainerClient->GetBlockBlobClient("source" + RandomString());
+    sourceBlobClient.UploadFrom(m_blobContent.data(), m_blobContent.size());
+
+    const std::string blobName = "dest" + RandomString();
+    auto destBlobClient = m_blobContainerClient->GetBlockBlobClient(blobName);
+
+    auto res = destBlobClient.CopyFromUri(sourceBlobClient.GetUrl() + GetSas());
+    EXPECT_EQ(res.RawResponse->GetStatusCode(), Azure::Core::Http::HttpStatusCode::Accepted);
+  }
+
 }}} // namespace Azure::Storage::Test

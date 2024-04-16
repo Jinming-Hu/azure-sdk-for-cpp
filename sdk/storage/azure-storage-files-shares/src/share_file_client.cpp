@@ -15,9 +15,7 @@
 #include <azure/storage/common/internal/constants.hpp>
 #include <azure/storage/common/internal/file_io.hpp>
 #include <azure/storage/common/internal/reliable_stream.hpp>
-#include <azure/storage/common/internal/shared_key_policy.hpp>
-#include <azure/storage/common/internal/storage_per_retry_policy.hpp>
-#include <azure/storage/common/internal/storage_service_version_policy.hpp>
+#include <azure/storage/common/internal/storage_pipeline.hpp>
 #include <azure/storage/common/storage_common.hpp>
 #include <azure/storage/common/storage_exception.hpp>
 
@@ -53,21 +51,15 @@ namespace Azure { namespace Storage { namespace Files { namespace Shares {
         m_allowSourceTrailingDot(options.AllowSourceTrailingDot),
         m_shareTokenIntent(options.ShareTokenIntent)
   {
-    ShareClientOptions newOptions = options;
-    newOptions.PerRetryPolicies.emplace_back(
-        std::make_unique<_internal::SharedKeyPolicy>(credential));
+    _internal::StorageHttpPipelineOptions serviceOptions;
+    serviceOptions.SharedKeyCredential = credential;
 
-    std::vector<std::unique_ptr<Azure::Core::Http::Policies::HttpPolicy>> perRetryPolicies;
-    std::vector<std::unique_ptr<Azure::Core::Http::Policies::HttpPolicy>> perOperationPolicies;
-    perRetryPolicies.emplace_back(std::make_unique<_internal::StoragePerRetryPolicy>());
-    perOperationPolicies.emplace_back(
-        std::make_unique<_internal::StorageServiceVersionPolicy>(newOptions.ApiVersion));
-    m_pipeline = std::make_shared<Azure::Core::Http::_internal::HttpPipeline>(
-        newOptions,
+    m_pipeline = _internal::BuildStorageHttpPipeline(
+        options.ApiVersion,
         _internal::FileServicePackageName,
         _detail::PackageVersion::ToString(),
-        std::move(perRetryPolicies),
-        std::move(perOperationPolicies));
+        serviceOptions,
+        options);
   }
 
   ShareFileClient::ShareFileClient(
@@ -78,29 +70,19 @@ namespace Azure { namespace Storage { namespace Files { namespace Shares {
         m_allowSourceTrailingDot(options.AllowSourceTrailingDot),
         m_shareTokenIntent(options.ShareTokenIntent)
   {
-    ShareClientOptions newOptions = options;
-
-    std::vector<std::unique_ptr<Azure::Core::Http::Policies::HttpPolicy>> perRetryPolicies;
-    std::vector<std::unique_ptr<Azure::Core::Http::Policies::HttpPolicy>> perOperationPolicies;
-    perRetryPolicies.emplace_back(std::make_unique<_internal::StoragePerRetryPolicy>());
+    _internal::StorageHttpPipelineOptions serviceOptions;
+    serviceOptions.TokenCredential = credential;
+    if (options.Audience.HasValue())
     {
-      Azure::Core::Credentials::TokenRequestContext tokenContext;
-      tokenContext.Scopes.emplace_back(
-          options.Audience.HasValue()
-              ? _internal::GetDefaultScopeForAudience(options.Audience.Value().ToString())
-              : _internal::StorageScope);
-      perRetryPolicies.emplace_back(
-          std::make_unique<Azure::Core::Http::Policies::_internal::BearerTokenAuthenticationPolicy>(
-              credential, tokenContext));
+      serviceOptions.TokenAudience = options.Audience.Value().ToString();
     }
-    perOperationPolicies.emplace_back(
-        std::make_unique<_internal::StorageServiceVersionPolicy>(newOptions.ApiVersion));
-    m_pipeline = std::make_shared<Azure::Core::Http::_internal::HttpPipeline>(
-        newOptions,
+
+    m_pipeline = _internal::BuildStorageHttpPipeline(
+        options.ApiVersion,
         _internal::FileServicePackageName,
         _detail::PackageVersion::ToString(),
-        std::move(perRetryPolicies),
-        std::move(perOperationPolicies));
+        serviceOptions,
+        options);
   }
 
   ShareFileClient::ShareFileClient(
@@ -110,17 +92,14 @@ namespace Azure { namespace Storage { namespace Files { namespace Shares {
         m_allowSourceTrailingDot(options.AllowSourceTrailingDot),
         m_shareTokenIntent(options.ShareTokenIntent)
   {
-    std::vector<std::unique_ptr<Azure::Core::Http::Policies::HttpPolicy>> perRetryPolicies;
-    std::vector<std::unique_ptr<Azure::Core::Http::Policies::HttpPolicy>> perOperationPolicies;
-    perRetryPolicies.emplace_back(std::make_unique<_internal::StoragePerRetryPolicy>());
-    perOperationPolicies.emplace_back(
-        std::make_unique<_internal::StorageServiceVersionPolicy>(options.ApiVersion));
-    m_pipeline = std::make_shared<Azure::Core::Http::_internal::HttpPipeline>(
-        options,
+    _internal::StorageHttpPipelineOptions serviceOptions;
+
+    m_pipeline = _internal::BuildStorageHttpPipeline(
+        options.ApiVersion,
         _internal::FileServicePackageName,
         _detail::PackageVersion::ToString(),
-        std::move(perRetryPolicies),
-        std::move(perOperationPolicies));
+        serviceOptions,
+        options);
   }
 
   ShareFileClient ShareFileClient::WithShareSnapshot(const std::string& shareSnapshot) const
