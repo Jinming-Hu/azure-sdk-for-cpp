@@ -1490,10 +1490,28 @@ long GetConnectionTimeout(
 // the connection key.
 inline std::string GetConnectionKey(
     std::string const& host,
+    Azure::Core::Http::HttpMethod const& verb,
     CurlTransportOptions const& options,
     std::chrono::milliseconds connectionTimeoutOverride)
 {
   std::string key(host);
+  std::string dataPattern;
+  if (verb == Azure::Core::Http::HttpMethod::Get)
+  {
+    dataPattern = "ResponseBody";
+  }
+  else if (
+      verb == Azure::Core::Http::HttpMethod::Head || verb == Azure::Core::Http::HttpMethod::Delete
+      || verb == Azure::Core::Http::HttpMethod::Options)
+  {
+    dataPattern = "NoBody";
+  }
+  else
+  {
+    dataPattern = "RequestBody";
+  }
+  key.append(",");
+  key.append(dataPattern);
   key.append(",");
   key.append(!options.CAInfo.empty() ? options.CAInfo : "0");
   key.append(",");
@@ -2294,8 +2312,8 @@ std::unique_ptr<CurlNetworkConnection> CurlConnectionPool::ExtractOrCreateCurlCo
   // Generate a display name for the host being connected to
   std::string const& hostDisplayName = request.GetUrl().GetScheme() + "://"
       + request.GetUrl().GetHost() + (port != 0 ? ":" + std::to_string(port) : "");
-  std::string const connectionKey
-      = GetConnectionKey(hostDisplayName, options, connectionTimeoutOverride);
+  std::string const connectionKey = GetConnectionKey(
+      hostDisplayName, request.GetMethod(), options, connectionTimeoutOverride);
 
   {
     decltype(CurlConnectionPool::g_curlConnectionPool
