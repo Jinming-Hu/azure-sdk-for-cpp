@@ -88,9 +88,15 @@ namespace Azure { namespace Storage { namespace Blobs {
           options.Audience.HasValue()
               ? _internal::GetDefaultScopeForAudience(options.Audience.Value().ToString())
               : _internal::StorageScope);
+      _internal::SessionOptions sessionOptions;
+      if (options.SessionOptions.Mode == SessionMode::Enabled)
+      {
+        sessionOptions.Enabled = true;
+        sessionOptions.AccountName = options.SessionOptions.AccountName;
+      }
       pipelineOptions.TokenAuthPolicy
           = std::make_unique<_internal::StorageBearerTokenAuthenticationPolicy>(
-              credential, tokenContext, options.EnableTenantDiscovery);
+              credential, tokenContext, options.EnableTenantDiscovery, sessionOptions);
     }
 
     m_pipeline = std::make_shared<Azure::Core::Http::_internal::HttpPipeline>(

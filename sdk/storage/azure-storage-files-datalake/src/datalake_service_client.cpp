@@ -93,7 +93,7 @@ namespace Azure { namespace Storage { namespace Files { namespace DataLake {
               : _internal::StorageScope);
       pipelineOptions.TokenAuthPolicy
           = std::make_unique<_internal::StorageBearerTokenAuthenticationPolicy>(
-              credential, tokenContext, options.EnableTenantDiscovery);
+              credential, tokenContext, options.EnableTenantDiscovery, _internal::SessionOptions());
     }
 
     m_pipeline = std::make_shared<Azure::Core::Http::_internal::HttpPipeline>(
