@@ -4689,6 +4689,217 @@ namespace Azure { namespace Storage { namespace Blobs {
       Models::SetBlobTagsResult response;
       return Response<Models::SetBlobTagsResult>(std::move(response), std::move(pRawResponse));
     }
+    Response<Models::_detail::BlobLayout> BlobClient::GetLayout(
+        Core::Http::_internal::HttpPipeline& pipeline,
+        const Core::Url& url,
+        const GetBlobLayoutOptions& options,
+        const Core::Context& context)
+    {
+      auto request = Core::Http::Request(Core::Http::HttpMethod::Get, url);
+      request.GetUrl().AppendQueryParameter("comp", "layout");
+      if (options.Snapshot.HasValue() && !options.Snapshot.Value().empty())
+      {
+        request.GetUrl().AppendQueryParameter(
+            "snapshot", _internal::UrlEncodeQueryParameter(options.Snapshot.Value()));
+      }
+      if (options.VersionId.HasValue() && !options.VersionId.Value().empty())
+      {
+        request.GetUrl().AppendQueryParameter(
+            "versionid", _internal::UrlEncodeQueryParameter(options.VersionId.Value()));
+      }
+      if (options.Marker.HasValue() && !options.Marker.Value().empty())
+      {
+        request.GetUrl().AppendQueryParameter(
+            "marker", _internal::UrlEncodeQueryParameter(options.Marker.Value()));
+      }
+      if (options.MaxResults.HasValue())
+      {
+        request.GetUrl().AppendQueryParameter(
+            "maxresults", std::to_string(options.MaxResults.Value()));
+      }
+      if (options.Range.HasValue() && !options.Range.Value().empty())
+      {
+        request.SetHeader("x-ms-range", options.Range.Value());
+      }
+      if (options.LeaseId.HasValue() && !options.LeaseId.Value().empty())
+      {
+        request.SetHeader("x-ms-lease-id", options.LeaseId.Value());
+      }
+      if (options.IfTags.HasValue() && !options.IfTags.Value().empty())
+      {
+        request.SetHeader("x-ms-if-tags", options.IfTags.Value());
+      }
+      if (options.IfModifiedSince.HasValue())
+      {
+        request.SetHeader(
+            "If-Modified-Since",
+            options.IfModifiedSince.Value().ToString(Azure::DateTime::DateFormat::Rfc1123));
+      }
+      if (options.IfUnmodifiedSince.HasValue())
+      {
+        request.SetHeader(
+            "If-Unmodified-Since",
+            options.IfUnmodifiedSince.Value().ToString(Azure::DateTime::DateFormat::Rfc1123));
+      }
+      if (options.IfMatch.HasValue() && !options.IfMatch.ToString().empty())
+      {
+        request.SetHeader("If-Match", options.IfMatch.ToString());
+      }
+      if (options.IfNoneMatch.HasValue() && !options.IfNoneMatch.ToString().empty())
+      {
+        request.SetHeader("If-None-Match", options.IfNoneMatch.ToString());
+      }
+      if (options.EncryptionKey.HasValue() && !options.EncryptionKey.Value().empty())
+      {
+        request.SetHeader("x-ms-encryption-key", options.EncryptionKey.Value());
+      }
+      if (options.EncryptionKeySha256.HasValue()
+          && !Core::Convert::Base64Encode(options.EncryptionKeySha256.Value()).empty())
+      {
+        request.SetHeader(
+            "x-ms-encryption-key-sha256",
+            Core::Convert::Base64Encode(options.EncryptionKeySha256.Value()));
+      }
+      if (options.EncryptionAlgorithm.HasValue() && !options.EncryptionAlgorithm.Value().empty())
+      {
+        request.SetHeader("x-ms-encryption-algorithm", options.EncryptionAlgorithm.Value());
+      }
+      request.SetHeader("x-ms-version", "2026-10-06");
+      auto pRawResponse = pipeline.Send(request, context);
+      auto httpStatusCode = pRawResponse->GetStatusCode();
+      if (!(httpStatusCode == Core::Http::HttpStatusCode::Ok
+            || httpStatusCode == Core::Http::HttpStatusCode::NoContent))
+      {
+        throw StorageException::CreateFromResponse(std::move(pRawResponse));
+      }
+      Models::_detail::BlobLayout response;
+      if (httpStatusCode == Core::Http::HttpStatusCode::NoContent)
+      {
+        return Response<Models::_detail::BlobLayout>(std::move(response), std::move(pRawResponse));
+      }
+      {
+        const auto& responseBody = pRawResponse->GetBody();
+        _internal::XmlReader reader(
+            reinterpret_cast<const char*>(responseBody.data()), responseBody.size());
+        enum class XmlTagEnum
+        {
+          kUnknown,
+          kBlobLayout,
+          kRanges,
+          kRange,
+          kBlobLayoutRangesRangeItem,
+          kEndpoints,
+          kEndpoint,
+          kBlobLayoutEndpointsEndpointItem,
+          kMarker,
+          kNextMarker,
+          kMaxResults,
+        };
+        const std::unordered_map<std::string, XmlTagEnum> XmlTagEnumMap{
+            {"BlobLayout", XmlTagEnum::kBlobLayout},
+            {"Ranges", XmlTagEnum::kRanges},
+            {"Range", XmlTagEnum::kRange},
+            {"BlobLayoutRangesRangeItem", XmlTagEnum::kBlobLayoutRangesRangeItem},
+            {"Endpoints", XmlTagEnum::kEndpoints},
+            {"Endpoint", XmlTagEnum::kEndpoint},
+            {"BlobLayoutEndpointsEndpointItem", XmlTagEnum::kBlobLayoutEndpointsEndpointItem},
+            {"Marker", XmlTagEnum::kMarker},
+            {"NextMarker", XmlTagEnum::kNextMarker},
+            {"MaxResults", XmlTagEnum::kMaxResults},
+        };
+        std::vector<XmlTagEnum> xmlPath;
+        Models::_detail::BlobLayoutRangesRangeItem vectorElement1;
+        Models::_detail::BlobLayoutEndpointsEndpointItem vectorElement2;
+        while (true)
+        {
+          auto node = reader.Read();
+          if (node.Type == _internal::XmlNodeType::End)
+          {
+            break;
+          }
+          else if (node.Type == _internal::XmlNodeType::StartTag)
+          {
+            auto ite = XmlTagEnumMap.find(node.Name);
+            xmlPath.push_back(ite == XmlTagEnumMap.end() ? XmlTagEnum::kUnknown : ite->second);
+          }
+          else if (node.Type == _internal::XmlNodeType::Text)
+          {
+            if (xmlPath.size() == 2 && xmlPath[0] == XmlTagEnum::kBlobLayout
+                && xmlPath[1] == XmlTagEnum::kMarker)
+            {
+              response.Marker = node.Value;
+            }
+            else if (
+                xmlPath.size() == 2 && xmlPath[0] == XmlTagEnum::kBlobLayout
+                && xmlPath[1] == XmlTagEnum::kNextMarker)
+            {
+              response.NextMarker = node.Value;
+            }
+            else if (
+                xmlPath.size() == 2 && xmlPath[0] == XmlTagEnum::kBlobLayout
+                && xmlPath[1] == XmlTagEnum::kMaxResults)
+            {
+              response.MaxResults = std::stoi(node.Value);
+            }
+          }
+          else if (node.Type == _internal::XmlNodeType::Attribute)
+          {
+            if (xmlPath.size() == 3 && xmlPath[0] == XmlTagEnum::kBlobLayout
+                && xmlPath[1] == XmlTagEnum::kRanges && xmlPath[2] == XmlTagEnum::kRange
+                && node.Name == "Start")
+            {
+              vectorElement1.Start = std::stoll(node.Value);
+            }
+            else if (
+                xmlPath.size() == 3 && xmlPath[0] == XmlTagEnum::kBlobLayout
+                && xmlPath[1] == XmlTagEnum::kRanges && xmlPath[2] == XmlTagEnum::kRange
+                && node.Name == "End")
+            {
+              vectorElement1.End = std::stoll(node.Value);
+            }
+            else if (
+                xmlPath.size() == 3 && xmlPath[0] == XmlTagEnum::kBlobLayout
+                && xmlPath[1] == XmlTagEnum::kRanges && xmlPath[2] == XmlTagEnum::kRange
+                && node.Name == "EndpointIndex")
+            {
+              vectorElement1.EndpointIndex = std::stoi(node.Value);
+            }
+            else if (
+                xmlPath.size() == 3 && xmlPath[0] == XmlTagEnum::kBlobLayout
+                && xmlPath[1] == XmlTagEnum::kEndpoints && xmlPath[2] == XmlTagEnum::kEndpoint
+                && node.Name == "Index")
+            {
+              vectorElement2.Index = std::stoi(node.Value);
+            }
+            else if (
+                xmlPath.size() == 3 && xmlPath[0] == XmlTagEnum::kBlobLayout
+                && xmlPath[1] == XmlTagEnum::kEndpoints && xmlPath[2] == XmlTagEnum::kEndpoint
+                && node.Name == "Value")
+            {
+              vectorElement2.Value = node.Value;
+            }
+          }
+          else if (node.Type == _internal::XmlNodeType::EndTag)
+          {
+            if (xmlPath.size() == 3 && xmlPath[0] == XmlTagEnum::kBlobLayout
+                && xmlPath[1] == XmlTagEnum::kRanges && xmlPath[2] == XmlTagEnum::kRange)
+            {
+              response.Ranges.Range.push_back(std::move(vectorElement1));
+              vectorElement1 = Models::_detail::BlobLayoutRangesRangeItem();
+            }
+            else if (
+                xmlPath.size() == 3 && xmlPath[0] == XmlTagEnum::kBlobLayout
+                && xmlPath[1] == XmlTagEnum::kEndpoints && xmlPath[2] == XmlTagEnum::kEndpoint)
+            {
+              response.Endpoints.Endpoint.push_back(std::move(vectorElement2));
+              vectorElement2 = Models::_detail::BlobLayoutEndpointsEndpointItem();
+            }
+            xmlPath.pop_back();
+          }
+        }
+      }
+      return Response<Models::_detail::BlobLayout>(std::move(response), std::move(pRawResponse));
+    }
     Response<Models::CreatePageBlobResult> PageBlobClient::Create(
         Core::Http::_internal::HttpPipeline& pipeline,
         const Core::Url& url,
