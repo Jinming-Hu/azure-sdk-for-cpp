@@ -30,6 +30,27 @@ namespace Azure { namespace Storage {
     namespace Models {
 
       /**
+       * @brief Describes a range in a blob's data locality layout.
+       */
+      struct BlobLayoutRange final
+      {
+        /**
+         * @brief The byte offset at which the range starts.
+         */
+        int64_t Offset = 0;
+
+        /**
+         * @brief The length of the range in bytes.
+         */
+        int64_t Length = 0;
+
+        /**
+         * @brief The endpoint from which the range can be downloaded.
+         */
+        std::string Endpoint;
+      };
+
+      /**
        * @brief Response type for #Azure::Storage::Blobs::BlobClient::DownloadTo.
        */
       struct DownloadBlobToResult final
@@ -480,6 +501,37 @@ namespace Azure { namespace Storage {
 
       friend class PageBlobClient;
       friend class Azure::Core::PagedResponse<GetPageRangesDiffPagedResponse>;
+    };
+
+    /**
+     * @brief Response type for #Azure::Storage::Blobs::BlobClient::GetLayout.
+     */
+    class BlobLayoutPagedResponse final
+        : public Azure::Core::PagedResponse<BlobLayoutPagedResponse> {
+    public:
+      /**
+       * @brief The ranges in this page of the blob's data locality layout.
+       */
+      std::vector<Models::BlobLayoutRange> Ranges;
+
+      /**
+       * @brief The size of the blob in bytes.
+       */
+      int64_t BlobSize = 0;
+
+      /**
+       * @brief The blob's entity tag.
+       */
+      Azure::ETag ETag;
+
+    private:
+      void OnNextPage(const Azure::Core::Context& context);
+
+      std::shared_ptr<Blobs::BlobClient> m_blobClient;
+      GetBlobLayoutOptions m_operationOptions;
+
+      friend class Blobs::BlobClient;
+      friend class Azure::Core::PagedResponse<BlobLayoutPagedResponse>;
     };
 
     namespace _detail {

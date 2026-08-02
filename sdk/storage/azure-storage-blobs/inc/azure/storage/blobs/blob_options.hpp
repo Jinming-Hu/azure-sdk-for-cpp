@@ -840,6 +840,12 @@ namespace Azure { namespace Storage { namespace Blobs {
      * @brief Optional. Configures whether to do content validation for blob downloads.
      */
     Azure::Nullable<TransferValidationOptions> ValidationOptions;
+
+    /**
+     * @brief Private preview. Attempts to route each download request to the endpoint preferred by
+     * the blob's layout.
+     */
+    bool EnableLayoutAwareRouting = false;
   };
 
   /**
@@ -1810,6 +1816,27 @@ namespace Azure { namespace Storage { namespace Blobs {
    */
   struct SubmitBlobBatchOptions final
   {
+  };
+
+  /**
+   * @brief Optional parameters for #Azure::Storage::Blobs::BlobClient::GetLayout.
+   */
+  struct GetBlobLayoutOptions final
+  {
+    /**
+     * @brief The range of bytes for which to retrieve the layout.
+     */
+    Azure::Nullable<Core::Http::HttpRange> Range;
+
+    /**
+     * @brief The continuation token for retrieving the next page.
+     */
+    Azure::Nullable<std::string> ContinuationToken;
+
+    /**
+     * @brief Access conditions for the operation.
+     */
+    BlobAccessConditions AccessConditions;
   };
 
   namespace _detail {

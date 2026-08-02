@@ -2537,6 +2537,69 @@ namespace Azure { namespace Storage { namespace Blobs {
     struct SetBlobTagsResult final
     {
     };
+    namespace _detail {
+      struct BlobLayoutRangesRangeItem final
+      {
+        /**
+         * The start byte offset of the range.
+         */
+        std::int64_t Start = std::int64_t();
+        /**
+         * The end byte offset of the range.
+         */
+        std::int64_t End = std::int64_t();
+        /**
+         * Index into the Endpoints array indicating which endpoint serves this range.
+         */
+        std::int32_t EndpointIndex = std::int32_t();
+      };
+      struct BlobLayoutRanges final
+      {
+        /**
+         * Array of BlobLayout-Ranges-RangeItem.
+         */
+        std::vector<BlobLayoutRangesRangeItem> Range;
+      };
+      struct BlobLayoutEndpointsEndpointItem final
+      {
+        /**
+         * The index of the endpoint, referenced by Range elements.
+         */
+        std::int32_t Index = std::int32_t();
+        /**
+         * The host:port of the endpoint.
+         */
+        std::string Value;
+      };
+      struct BlobLayoutEndpoints final
+      {
+        /**
+         * Array of BlobLayout-Endpoints-EndpointItem.
+         */
+        std::vector<BlobLayoutEndpointsEndpointItem> Endpoint;
+      };
+      /**
+       * @brief Response type for #Azure::Storage::Blobs::BlobClient::GetLayout.
+       */
+      struct BlobLayout final
+      {
+        BlobLayoutRanges Ranges;
+        BlobLayoutEndpoints Endpoints;
+        /**
+         * The continuation marker used for this request.
+         */
+        std::string Marker;
+        /**
+         * If the number of ranges exceeds MaxResults, a NextMarker is returned for use in
+         * subsequent requests to continue listing.
+         */
+        std::string NextMarker;
+        /**
+         * The maximum number of ranges to return per request.
+         */
+        std::int32_t MaxResults = std::int32_t();
+      };
+    } // namespace _detail
     /**
      * @brief Response type for #Azure::Storage::Blobs::PageBlobClient::Create.
      */
@@ -3979,6 +4042,28 @@ namespace Azure { namespace Storage { namespace Blobs {
           Core::Http::_internal::HttpPipeline& pipeline,
           const Core::Url& url,
           const SetBlobTagsOptions& options,
+          const Core::Context& context);
+      struct GetBlobLayoutOptions final
+      {
+        Nullable<std::string> Snapshot;
+        Nullable<std::string> VersionId;
+        Nullable<std::string> Marker;
+        Nullable<std::int32_t> MaxResults;
+        Nullable<std::string> Range;
+        Nullable<std::string> LeaseId;
+        Nullable<std::string> IfTags;
+        Nullable<DateTime> IfModifiedSince;
+        Nullable<DateTime> IfUnmodifiedSince;
+        ETag IfMatch;
+        ETag IfNoneMatch;
+        Nullable<std::string> EncryptionKey;
+        Nullable<std::vector<std::uint8_t>> EncryptionKeySha256;
+        Nullable<std::string> EncryptionAlgorithm;
+      };
+      static Response<Models::_detail::BlobLayout> GetLayout(
+          Core::Http::_internal::HttpPipeline& pipeline,
+          const Core::Url& url,
+          const GetBlobLayoutOptions& options,
           const Core::Context& context);
     };
     class PageBlobClient final {
