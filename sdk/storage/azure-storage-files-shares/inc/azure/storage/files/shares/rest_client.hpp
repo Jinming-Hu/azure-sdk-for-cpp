@@ -1200,7 +1200,7 @@ namespace Azure { namespace Storage { namespace Files { namespace Shares {
       AZ_STORAGE_FILES_SHARES_DLLEXPORT const static FilePropertySemantics Restore;
     };
     /**
-     * @brief NFS only. Type of the file or directory.
+     * @brief Type of the file.
      */
     class NfsFileType final : public Core::_internal::ExtendableEnumeration<NfsFileType> {
     public:
@@ -1215,6 +1215,14 @@ namespace Azure { namespace Storage { namespace Files { namespace Shares {
       AZ_STORAGE_FILES_SHARES_DLLEXPORT const static NfsFileType Directory;
       /** Constant value of type NfsFileType: SymLink */
       AZ_STORAGE_FILES_SHARES_DLLEXPORT const static NfsFileType SymLink;
+      /** Constant value of type NfsFileType: BlockDevice */
+      AZ_STORAGE_FILES_SHARES_DLLEXPORT const static NfsFileType BlockDevice;
+      /** Constant value of type NfsFileType: CharacterDevice */
+      AZ_STORAGE_FILES_SHARES_DLLEXPORT const static NfsFileType CharacterDevice;
+      /** Constant value of type NfsFileType: Socket */
+      AZ_STORAGE_FILES_SHARES_DLLEXPORT const static NfsFileType Socket;
+      /** Constant value of type NfsFileType: Fifo */
+      AZ_STORAGE_FILES_SHARES_DLLEXPORT const static NfsFileType Fifo;
     };
     namespace _detail {
       /**
@@ -1399,6 +1407,18 @@ namespace Azure { namespace Storage { namespace Files { namespace Shares {
        */
       ETag Etag;
       /**
+       * NFS only. The owner of the file or directory.
+       */
+      std::string Owner;
+      /**
+       * NFS only. The owning group of the file or directory.
+       */
+      std::string Group;
+      /**
+       *  NFS only. The mode of the file or directory.
+       */
+      std::string FileMode;
+      /**
        * The SMB related properties for the file.
        */
       FileSmbProperties SmbProperties;
@@ -1410,6 +1430,7 @@ namespace Azure { namespace Storage { namespace Files { namespace Shares {
       struct DirectoryItem final
       {
         StringEncoded Name;
+        Nullable<std::int64_t> LinkCount;
         /**
          * File properties.
          */
@@ -1441,6 +1462,18 @@ namespace Azure { namespace Storage { namespace Files { namespace Shares {
        */
       ETag Etag;
       /**
+       * NFS only. The owner of the file or directory.
+       */
+      std::string Owner;
+      /**
+       * NFS only. The owning group of the file or directory.
+       */
+      std::string Group;
+      /**
+       *  NFS only. The mode of the file or directory.
+       */
+      std::string FileMode;
+      /**
        * The SMB related properties for the file.
        */
       FileSmbProperties SmbProperties;
@@ -1452,6 +1485,76 @@ namespace Azure { namespace Storage { namespace Files { namespace Shares {
       struct FileItem final
       {
         StringEncoded Name;
+        Nullable<std::int64_t> LinkCount;
+        /**
+         * Type of the file.
+         */
+        NfsFileType FileType;
+        /**
+         * File properties.
+         */
+        FileItemDetails Details;
+      };
+      /**
+       * @brief A listed symbolic link item.
+       */
+      struct SymLinkItem final
+      {
+        StringEncoded Name;
+        Nullable<std::int64_t> LinkCount;
+        std::string LinkText;
+        /**
+         * File properties.
+         */
+        FileItemDetails Details;
+      };
+      /**
+       * @brief A listed block device item.
+       */
+      struct BlockDeviceItem final
+      {
+        StringEncoded Name;
+        Nullable<std::int64_t> LinkCount;
+        std::int64_t DeviceMajor = std::int64_t();
+        std::int64_t DeviceMinor = std::int64_t();
+        /**
+         * File properties.
+         */
+        FileItemDetails Details;
+      };
+      /**
+       * @brief A listed character device item.
+       */
+      struct CharDeviceItem final
+      {
+        StringEncoded Name;
+        Nullable<std::int64_t> LinkCount;
+        std::int64_t DeviceMajor = std::int64_t();
+        std::int64_t DeviceMinor = std::int64_t();
+        /**
+         * File properties.
+         */
+        FileItemDetails Details;
+      };
+      /**
+       * @brief A listed FIFO item.
+       */
+      struct FifoItem final
+      {
+        StringEncoded Name;
+        Nullable<std::int64_t> LinkCount;
+        /**
+         * File properties.
+         */
+        FileItemDetails Details;
+      };
+      /**
+       * @brief A listed socket item.
+       */
+      struct SocketItem final
+      {
+        StringEncoded Name;
+        Nullable<std::int64_t> LinkCount;
         /**
          * File properties.
          */
@@ -1470,6 +1573,26 @@ namespace Azure { namespace Storage { namespace Files { namespace Shares {
          * Array of FileItem.
          */
         std::vector<FileItem> FileItems;
+        /**
+         * Array of SymLinkItem.
+         */
+        std::vector<SymLinkItem> SymLinkItems;
+        /**
+         * Array of BlockDeviceItem.
+         */
+        std::vector<BlockDeviceItem> BlockDeviceItems;
+        /**
+         * Array of CharDeviceItem.
+         */
+        std::vector<CharDeviceItem> CharDeviceItems;
+        /**
+         * Array of FifoItem.
+         */
+        std::vector<FifoItem> FifoItems;
+        /**
+         * Array of SocketItem.
+         */
+        std::vector<SocketItem> SocketItems;
       };
     } // namespace _detail
     /**
@@ -1482,6 +1605,9 @@ namespace Azure { namespace Storage { namespace Files { namespace Shares {
       ETag = 2,
       Attributes = 4,
       PermissionKey = 8,
+      Permissions = 16,
+      LinkCount = 32,
+      NfsAttributes = 64,
     };
     inline ListFilesIncludeFlags operator|(ListFilesIncludeFlags lhs, ListFilesIncludeFlags rhs)
     {
