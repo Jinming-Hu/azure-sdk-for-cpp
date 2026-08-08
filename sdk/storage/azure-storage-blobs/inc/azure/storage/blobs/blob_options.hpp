@@ -5,6 +5,9 @@
 
 #include "azure/storage/blobs/rest_client.hpp"
 
+#include <azure/core/credentials/credentials.hpp>
+#include <azure/core/datetime.hpp>
+#include <azure/core/http/http.hpp>
 #include <azure/core/internal/client_options.hpp>
 #include <azure/core/internal/extendable_enumeration.hpp>
 #include <azure/core/match_conditions.hpp>
@@ -22,6 +25,66 @@
 #include <vector>
 
 namespace Azure { namespace Storage { namespace Blobs {
+
+  class SessionProvider;
+
+  namespace _detail {
+    class SessionAuthenticationPolicy;
+    class TokenCredentialSessionProvider;
+  } // namespace _detail
+
+  /**
+   * @brief Specifies how persisted session authentication is used.
+   */
+  enum class SessionMode
+  {
+    /**
+     * @brief Lets the SDK determine when to use sessions.
+     *
+     * @note Currently behaves the same as #Enabled.
+     */
+    Auto,
+
+    /**
+     * @brief Disables session authentication.
+     */
+    Disabled,
+
+    /**
+     * @brief Enables session authentication for eligible requests.
+     */
+    Enabled,
+  };
+
+  /**
+   * @brief Configures persisted session authentication.
+   */
+  struct SessionOptions final
+  {
+    /**
+     * @brief The session authentication mode.
+     *
+     * In Auto mode, clients use bearer authentication when session configuration cannot be
+     * inferred from the endpoint.
+     */
+    SessionMode Mode = SessionMode::Auto;
+
+    /**
+     * @brief Account name used when signing requests. Required when it cannot be inferred from URL.
+     *
+     * For custom endpoints, both AccountName and Provider must be specified.
+     */
+    std::string AccountName;
+
+    /**
+     * @brief Optional provider whose session cache can be shared by multiple clients.
+     *
+     * When unset, each independently constructed client creates its own provider. Clients derived
+     * from that client share its provider and cache. For custom endpoints, both Provider and
+     * AccountName must be specified.
+     */
+    std::shared_ptr<SessionProvider> Provider;
+  };
 
   /**
    * @brief Audiences available for blob service
@@ -287,6 +350,36 @@ namespace Azure { namespace Storage { namespace Blobs {
      * @brief Optional. Configures whether to do content validation for blob downloads.
      */
     Azure::Nullable<TransferValidationOptions> DownloadValidationOptions;
+
+    /**
+     * @brief Configures persisted session authentication.
+     */
+    Blobs::SessionOptions Session;
+  };
+
+  /**
+   * @brief Owns and caches persisted sessions that can be shared by multiple clients.
+   */
+  class AZ_STORAGE_BLOBS_DLLEXPORT SessionProvider final {
+  public:
+    /**
+     * @brief Creates a provider backed by a TokenCredential.
+     *
+     * @param serviceUrl The Blob service URL.
+     * @param credential The credential used to create sessions.
+     * @param options Client options used by Create Session requests.
+     */
+    SessionProvider(
+        const std::string& serviceUrl,
+        std::shared_ptr<const Azure::Core::Credentials::TokenCredential> credential,
+        const BlobClientOptions& options);
+
+    ~SessionProvider();
+
+  private:
+    friend class _detail::SessionAuthenticationPolicy;
+
+    std::shared_ptr<_detail::TokenCredentialSessionProvider> m_provider;
   };
 
   /**

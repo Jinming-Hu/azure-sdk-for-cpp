@@ -2,8 +2,21 @@
 // Licensed under the MIT License.
 
 #include "azure/storage/blobs/blob_options.hpp"
+#include "private/token_credential_session_provider.hpp"
 
 namespace Azure { namespace Storage { namespace Blobs {
+
+  SessionProvider::SessionProvider(
+      const std::string& serviceUrl,
+      std::shared_ptr<const Azure::Core::Credentials::TokenCredential> credential,
+      const BlobClientOptions& options)
+      : m_provider(
+          std::make_shared<_detail::TokenCredentialSessionProvider>(
+              serviceUrl, std::move(credential), options))
+  {
+  }
+
+  SessionProvider::~SessionProvider() = default;
 
   const BlobAudience BlobAudience::DefaultAudience(_internal::StorageDefaultAudience);
 
