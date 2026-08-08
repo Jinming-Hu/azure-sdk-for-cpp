@@ -418,6 +418,7 @@ namespace Azure { namespace Storage { namespace Blobs {
 
   // TODO: Define how layout-aware routing interacts with SecondaryHostForRetryReads, including
   // whether locality requests can fail over and which endpoint takes precedence.
+  // TODO: Determine how data locality should work with Data Lake clients and endpoints.
   BlobLayoutPagedResponse BlobClient::GetLayout(
       const GetBlobLayoutOptions& options,
       const Azure::Core::Context& context) const
