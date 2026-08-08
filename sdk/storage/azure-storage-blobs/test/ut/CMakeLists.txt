@@ -33,6 +33,7 @@ add_executable (
     macro_guard.cpp
     page_blob_client_test.cpp
     page_blob_client_test.hpp
+    session_authentication_test.cpp
     simplified_header_test.cpp
     storage_retry_policy_test.cpp
     storage_timeout_test.cpp

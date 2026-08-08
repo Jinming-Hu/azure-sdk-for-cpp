@@ -78,6 +78,10 @@ set(
     src/private/data_locality.cpp
     src/private/data_locality.hpp
     src/private/package_version.hpp
+    src/private/session_authentication_policy.cpp
+    src/private/session_authentication_policy.hpp
+    src/private/token_credential_session_provider.cpp
+    src/private/token_credential_session_provider.hpp
     src/rest_client.cpp
 )
 
