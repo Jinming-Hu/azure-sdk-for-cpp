@@ -845,7 +845,7 @@ namespace Azure { namespace Storage { namespace Blobs {
      * @brief Private preview. Attempts to route each download request to the endpoint preferred by
      * the blob's layout.
      */
-    bool EnableLayoutAwareRouting = false;
+    bool EnableLayoutAwareRouting = true;
   };
 
   /**
