@@ -4,6 +4,7 @@
 #include "blob_container_client_test.hpp"
 
 #include <azure/storage/blobs.hpp>
+#include <azure/storage/common/internal/storage_data_locality_policy.hpp>
 #include <azure/storage/common/internal/shared_key_policy.hpp>
 
 #include <atomic>
@@ -203,41 +204,6 @@ namespace Azure { namespace Storage { namespace Test {
       }
     };
 
-    class DataLocalityTestPolicy final : public Azure::Core::Http::Policies::HttpPolicy {
-    public:
-      DataLocalityTestPolicy() : m_downloadCount(std::make_shared<std::atomic<int>>(0)) {}
-
-      explicit DataLocalityTestPolicy(std::shared_ptr<std::atomic<int>> downloadCount)
-          : m_downloadCount(std::move(downloadCount))
-      {
-      }
-
-      std::unique_ptr<HttpPolicy> Clone() const override
-      {
-        return std::make_unique<DataLocalityTestPolicy>(m_downloadCount);
-      }
-
-      std::unique_ptr<Azure::Core::Http::RawResponse> Send(
-          Azure::Core::Http::Request& request,
-          Azure::Core::Http::Policies::NextHttpPolicy nextPolicy,
-          Azure::Core::Context const& context) const override
-      {
-        const auto query = request.GetUrl().GetQueryParameters();
-        if (request.GetMethod() == Azure::Core::Http::HttpMethod::Get
-            && query.count("comp") == 0)
-        {
-          request.SetHeader("Host", request.GetUrl().GetHost());
-          request.GetUrl().SetHost(
-              ++*m_downloadCount == 1 ? "tenant1.blob.core.windows.net"
-                                      : "tenant2.blob.core.windows.net");
-        }
-        return nextPolicy.Send(request, context);
-      }
-
-    private:
-      std::shared_ptr<std::atomic<int>> m_downloadCount;
-    };
-
     class SessionRequestCountingPolicy final : public Azure::Core::Http::Policies::HttpPolicy {
     public:
       explicit SessionRequestCountingPolicy(std::shared_ptr<std::atomic<int>> sessionRequestCount)
@@ -367,14 +333,19 @@ namespace Azure { namespace Storage { namespace Test {
     auto credential = std::make_shared<SessionTestCredential>();
     auto state = std::make_shared<SessionTestState>();
     Blobs::BlobClientOptions options;
-    options.PerOperationPolicies.emplace_back(std::make_unique<DataLocalityTestPolicy>());
     AddSessionTestTransport(options, state);
     options.Session.AccountName = "account";
 
     Blobs::BlobClient client(
         "https://account.blob.core.windows.net/container/blob", credential, options);
-    EXPECT_NO_THROW(client.Download());
-    EXPECT_NO_THROW(client.Download());
+    EXPECT_NO_THROW(client.Download(
+        {},
+        _internal::WithDataLocalityEndpoint(
+            Azure::Core::Context(), "https://tenant1.blob.core.windows.net:443/")));
+    EXPECT_NO_THROW(client.Download(
+        {},
+        _internal::WithDataLocalityEndpoint(
+            Azure::Core::Context(), "https://tenant2.blob.core.windows.net:443/")));
 
     ASSERT_EQ(state->CreateSessionContainers.size(), 1U);
     ASSERT_EQ(state->DownloadHosts.size(), 2U);

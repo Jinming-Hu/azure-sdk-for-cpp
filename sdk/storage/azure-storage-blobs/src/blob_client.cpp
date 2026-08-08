@@ -443,11 +443,13 @@ namespace Azure { namespace Storage { namespace Blobs {
     protocolLayerOptions.IfUnmodifiedSince = options.AccessConditions.IfUnmodifiedSince;
     protocolLayerOptions.IfMatch = options.AccessConditions.IfMatch;
     protocolLayerOptions.IfNoneMatch = options.AccessConditions.IfNoneMatch;
-    if (m_customerProvidedKey.HasValue())
+    if (m_clientConfiguration.CustomerProvidedKey.HasValue())
     {
-      protocolLayerOptions.EncryptionKey = m_customerProvidedKey.Value().Key;
-      protocolLayerOptions.EncryptionKeySha256 = m_customerProvidedKey.Value().KeyHash;
-      protocolLayerOptions.EncryptionAlgorithm = m_customerProvidedKey.Value().Algorithm.ToString();
+      protocolLayerOptions.EncryptionKey = m_clientConfiguration.CustomerProvidedKey.Value().Key;
+      protocolLayerOptions.EncryptionKeySha256
+          = m_clientConfiguration.CustomerProvidedKey.Value().KeyHash;
+      protocolLayerOptions.EncryptionAlgorithm
+          = m_clientConfiguration.CustomerProvidedKey.Value().Algorithm.ToString();
     }
 
     auto response
