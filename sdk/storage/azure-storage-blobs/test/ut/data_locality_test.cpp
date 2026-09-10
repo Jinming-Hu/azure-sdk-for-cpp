@@ -35,6 +35,8 @@ namespace Azure { namespace Storage { namespace Test {
       std::vector<LocalityRequest> Requests;
       Core::Http::HttpStatusCode LayoutStatus = Core::Http::HttpStatusCode::Ok;
       bool PaginateLayout = false;
+      bool ReturnDownloadHint = true;
+      std::string DownloadHint = "layout";
     };
 
     class LocalityTransportPolicy final : public Core::Http::Policies::HttpPolicy {
@@ -139,7 +141,7 @@ namespace Azure { namespace Storage { namespace Test {
           const auto separator = rangeHeader->second.find('-');
           offset = std::stoll(rangeHeader->second.substr(6, separator - 6));
           const auto end = std::stoll(rangeHeader->second.substr(separator + 1));
-          length = end - offset + 1;
+          length = (std::min)(end - offset + 1, static_cast<int64_t>(m_data->size()) - offset);
         }
 
         auto response = std::make_unique<Core::Http::RawResponse>(
@@ -165,6 +167,10 @@ namespace Azure { namespace Storage { namespace Test {
         response->SetHeader("x-ms-blob-content-length", std::to_string(m_data->size()));
         response->SetHeader("x-ms-blob-type", "BlockBlob");
         response->SetHeader("x-ms-server-encrypted", "true");
+        if (m_state->ReturnDownloadHint)
+        {
+          response->SetHeader("x-ms-download-hint", m_state->DownloadHint);
+        }
         return response;
       }
 
@@ -201,12 +207,6 @@ namespace Azure { namespace Storage { namespace Test {
       options.TransferOptions.ChunkSize = 64 * 1024;
       options.TransferOptions.Concurrency = 4;
       return options;
-    }
-
-    std::vector<uint8_t> CreateLayoutAwareDownloadBuffer(size_t dataSize)
-    {
-      return std::vector<uint8_t>((std::max)(
-          dataSize, static_cast<size_t>(Blobs::_detail::DataLocalityMinimumDownloadSize)));
     }
 
     Blobs::_detail::DataLocalityLayout CreateLayout(const std::string& endpoint)
@@ -295,7 +295,7 @@ namespace Azure { namespace Storage { namespace Test {
     }
     auto client = CreateLocalityClient(state, data);
 
-    auto buffer = CreateLayoutAwareDownloadBuffer(data->size());
+    std::vector<uint8_t> buffer(data->size());
     auto response = client.DownloadTo(buffer.data(), buffer.size(), CreateDownloadOptions());
 
     EXPECT_EQ(response.Value.BlobSize, static_cast<int64_t>(data->size()));
@@ -303,9 +303,14 @@ namespace Azure { namespace Storage { namespace Test {
 
     std::lock_guard<std::mutex> lock(state->Mutex);
     ASSERT_EQ(state->Requests.size(), 16U);
-    EXPECT_TRUE(state->Requests.front().IsLayout);
+    EXPECT_FALSE(state->Requests[0].IsLayout);
+    EXPECT_EQ(state->Requests[0].Host, "primary.test");
+    EXPECT_EQ(state->Requests[0].Range, "bytes=0-131071");
+    EXPECT_TRUE(state->Requests[1].IsLayout);
+    EXPECT_EQ(state->Requests[1].Range, "bytes=131072-1048575");
+    EXPECT_EQ(state->Requests[1].IfMatch, "\"locality-etag\"");
     EXPECT_EQ(state->Requests.front().Host, "primary.test");
-    for (auto request = state->Requests.begin() + 1; request != state->Requests.end(); ++request)
+    for (auto request = state->Requests.begin() + 2; request != state->Requests.end(); ++request)
     {
       EXPECT_FALSE(request->IsLayout);
       EXPECT_TRUE(request->Host == "locality0.test" || request->Host == "locality1.test");
@@ -337,7 +342,10 @@ namespace Azure { namespace Storage { namespace Test {
 
     std::lock_guard<std::mutex> lock(state->Mutex);
     ASSERT_EQ(state->Requests.size(), 16U);
-    for (auto request = state->Requests.begin() + 1; request != state->Requests.end(); ++request)
+    EXPECT_FALSE(state->Requests[0].IsLayout);
+    EXPECT_EQ(state->Requests[0].Host, "primary.test");
+    EXPECT_TRUE(state->Requests[1].IsLayout);
+    for (auto request = state->Requests.begin() + 2; request != state->Requests.end(); ++request)
     {
       EXPECT_TRUE(request->Host == "locality0.test" || request->Host == "locality1.test");
       EXPECT_EQ(request->HostHeader, "primary.test");
@@ -345,10 +353,10 @@ namespace Azure { namespace Storage { namespace Test {
     }
   }
 
-  TEST(DataLocalityTest, SkipsLayoutForSmallBufferDownload)
+  TEST(DataLocalityTest, CompletesSmallBufferDownloadBeforeLayout)
   {
     auto state = std::make_shared<LocalityState>();
-    auto data = std::make_shared<std::string>(1024 * 1024, 's');
+    auto data = std::make_shared<std::string>(4 * 1024, 's');
     auto client = CreateLocalityClient(state, data);
 
     std::vector<uint8_t> buffer(data->size());
@@ -361,7 +369,7 @@ namespace Azure { namespace Storage { namespace Test {
     EXPECT_EQ(state->Requests.front().Host, "primary.test");
   }
 
-  TEST(DataLocalityTest, SkipsLayoutForSmallRangeDownload)
+  TEST(DataLocalityTest, CompletesSingleRangeDownloadBeforeLayout)
   {
     auto state = std::make_shared<LocalityState>();
     auto data = std::make_shared<std::string>(1024 * 1024, 'o');
@@ -385,10 +393,10 @@ namespace Azure { namespace Storage { namespace Test {
     EXPECT_EQ(state->Requests.front().Host, "primary.test");
   }
 
-  TEST(DataLocalityTest, SkipsLayoutForSmallFileDownload)
+  TEST(DataLocalityTest, CompletesSmallFileDownloadBeforeLayout)
   {
     auto state = std::make_shared<LocalityState>();
-    auto data = std::make_shared<std::string>(1024 * 1024, 'f');
+    auto data = std::make_shared<std::string>(4 * 1024, 'f');
     auto client = CreateLocalityClient(state, data);
     const std::string fileName = Core::Uuid::CreateUuid().ToString() + ".tmp";
     auto options = CreateDownloadOptions();
@@ -409,6 +417,74 @@ namespace Azure { namespace Storage { namespace Test {
     EXPECT_EQ(state->Requests.front().Host, "primary.test");
   }
 
+  TEST(DataLocalityTest, DoesNotFetchLayoutWithoutDownloadHint)
+  {
+    auto state = std::make_shared<LocalityState>();
+    state->ReturnDownloadHint = false;
+    auto data = std::make_shared<std::string>(1024 * 1024, 'h');
+    auto client = CreateLocalityClient(state, data);
+
+    std::vector<uint8_t> buffer(data->size());
+    client.DownloadTo(buffer.data(), buffer.size(), CreateDownloadOptions());
+    EXPECT_TRUE(std::equal(buffer.begin(), buffer.end(), data->begin()));
+
+    std::lock_guard<std::mutex> lock(state->Mutex);
+    ASSERT_GT(state->Requests.size(), 1U);
+    for (const auto& request : state->Requests)
+    {
+      EXPECT_FALSE(request.IsLayout);
+      EXPECT_EQ(request.Host, "primary.test");
+    }
+  }
+
+  TEST(DataLocalityTest, AcceptsCaseInsensitiveDownloadHint)
+  {
+    auto state = std::make_shared<LocalityState>();
+    state->DownloadHint = "LAYOUT";
+    auto data = std::make_shared<std::string>(1024 * 1024, 'h');
+    auto client = CreateLocalityClient(state, data);
+
+    std::vector<uint8_t> buffer(data->size());
+    client.DownloadTo(buffer.data(), buffer.size(), CreateDownloadOptions());
+    EXPECT_TRUE(std::equal(buffer.begin(), buffer.end(), data->begin()));
+
+    std::lock_guard<std::mutex> lock(state->Mutex);
+    ASSERT_GT(state->Requests.size(), 1U);
+    EXPECT_FALSE(state->Requests[0].IsLayout);
+    EXPECT_TRUE(state->Requests[1].IsLayout);
+  }
+
+  TEST(DataLocalityTest, RoutesToEndpointWithLargestOverlap)
+  {
+    auto state = std::make_shared<LocalityState>();
+    auto data = std::make_shared<std::string>(1024 * 1024, 'o');
+    auto client = CreateLocalityClient(state, data);
+    constexpr int64_t offset = 200 * 1024;
+    constexpr int64_t length = 400 * 1024;
+    constexpr int64_t initialLength = 64 * 1024;
+    auto options = CreateDownloadOptions();
+    options.Range = Core::Http::HttpRange();
+    options.Range.Value().Offset = offset;
+    options.Range.Value().Length = length;
+    options.TransferOptions.InitialChunkSize = initialLength;
+    options.TransferOptions.ChunkSize = length - initialLength;
+
+    std::vector<uint8_t> buffer(length);
+    client.DownloadTo(buffer.data(), buffer.size(), options);
+    EXPECT_TRUE(std::equal(buffer.begin(), buffer.end(), data->begin() + offset));
+
+    std::lock_guard<std::mutex> lock(state->Mutex);
+    ASSERT_EQ(state->Requests.size(), 3U);
+    EXPECT_FALSE(state->Requests[0].IsLayout);
+    EXPECT_EQ(state->Requests[0].Range, "bytes=204800-270335");
+    EXPECT_TRUE(state->Requests[1].IsLayout);
+    EXPECT_EQ(state->Requests[1].Range, "bytes=270336-614399");
+    EXPECT_EQ(state->Requests[1].IfMatch, "\"locality-etag\"");
+    EXPECT_FALSE(state->Requests[2].IsLayout);
+    EXPECT_EQ(state->Requests[2].Range, "bytes=270336-614399");
+    EXPECT_EQ(state->Requests[2].Host, "locality1.test");
+  }
+
   TEST(DataLocalityTest, ReadsAllLayoutPages)
   {
     auto state = std::make_shared<LocalityState>();
@@ -416,16 +492,17 @@ namespace Azure { namespace Storage { namespace Test {
     auto data = std::make_shared<std::string>(1024 * 1024, 'p');
     auto client = CreateLocalityClient(state, data);
 
-    auto buffer = CreateLayoutAwareDownloadBuffer(data->size());
+    std::vector<uint8_t> buffer(data->size());
     client.DownloadTo(buffer.data(), buffer.size(), CreateDownloadOptions());
     EXPECT_TRUE(std::equal(data->begin(), data->end(), buffer.begin()));
 
     std::lock_guard<std::mutex> lock(state->Mutex);
     ASSERT_EQ(state->Requests.size(), 17U);
-    EXPECT_TRUE(state->Requests[0].IsLayout);
+    EXPECT_FALSE(state->Requests[0].IsLayout);
     EXPECT_TRUE(state->Requests[1].IsLayout);
-    EXPECT_TRUE(state->Requests[0].IfMatch.empty());
+    EXPECT_TRUE(state->Requests[2].IsLayout);
     EXPECT_EQ(state->Requests[1].IfMatch, "\"locality-etag\"");
+    EXPECT_EQ(state->Requests[2].IfMatch, "\"locality-etag\"");
   }
 
   TEST(DataLocalityTest, FallsBackOnUnsupportedLayout)
@@ -438,17 +515,21 @@ namespace Azure { namespace Storage { namespace Test {
       auto data = std::make_shared<std::string>(1024 * 1024, 'x');
       auto client = CreateLocalityClient(state, data);
 
-      auto buffer = CreateLayoutAwareDownloadBuffer(data->size());
+      std::vector<uint8_t> buffer(data->size());
       EXPECT_NO_THROW(client.DownloadTo(buffer.data(), buffer.size(), CreateDownloadOptions()));
       EXPECT_TRUE(std::equal(data->begin(), data->end(), buffer.begin()));
 
       std::lock_guard<std::mutex> lock(state->Mutex);
       ASSERT_GT(state->Requests.size(), 1U);
-      EXPECT_TRUE(state->Requests.front().IsLayout);
-      for (auto request = state->Requests.begin() + 1; request != state->Requests.end(); ++request)
+      EXPECT_FALSE(state->Requests[0].IsLayout);
+      EXPECT_TRUE(state->Requests[1].IsLayout);
+      for (auto request = state->Requests.begin(); request != state->Requests.end(); ++request)
       {
-        EXPECT_EQ(request->Host, "primary.test");
-        EXPECT_TRUE(request->HostHeader.empty());
+        if (!request->IsLayout)
+        {
+          EXPECT_EQ(request->Host, "primary.test");
+          EXPECT_TRUE(request->HostHeader.empty());
+        }
       }
     }
   }
@@ -460,7 +541,7 @@ namespace Azure { namespace Storage { namespace Test {
     auto data = std::make_shared<std::string>(1024 * 1024, 'x');
     auto client = CreateLocalityClient(state, data);
 
-    auto buffer = CreateLayoutAwareDownloadBuffer(data->size());
+    std::vector<uint8_t> buffer(data->size());
     EXPECT_THROW(
         client.DownloadTo(buffer.data(), buffer.size(), CreateDownloadOptions()), StorageException);
   }
@@ -472,7 +553,7 @@ namespace Azure { namespace Storage { namespace Test {
     auto data = std::make_shared<std::string>(1024 * 1024, 'x');
     auto client = CreateLocalityClient(state, data);
 
-    auto buffer = CreateLayoutAwareDownloadBuffer(data->size());
+    std::vector<uint8_t> buffer(data->size());
     EXPECT_NO_THROW(client.DownloadTo(buffer.data(), buffer.size(), CreateDownloadOptions()));
     EXPECT_TRUE(std::equal(data->begin(), data->end(), buffer.begin()));
 
