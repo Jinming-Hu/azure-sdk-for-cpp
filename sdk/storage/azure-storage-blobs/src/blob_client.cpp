@@ -11,6 +11,7 @@
 
 #include <azure/core/azure_assert.hpp>
 #include <azure/core/http/policies/policy.hpp>
+#include <azure/core/internal/strings.hpp>
 #include <azure/storage/common/crypt.hpp>
 #include <azure/storage/common/internal/concurrent_transfer.hpp>
 #include <azure/storage/common/internal/constants.hpp>
@@ -38,35 +39,29 @@ namespace Azure { namespace Storage { namespace Blobs {
   }
 
   namespace {
-    bool ShouldUseDataLocality(
-        const DownloadBlobToOptions& options,
-        const size_t* destinationSize = nullptr)
+    bool HasDataLocalityHint(const Azure::Core::Http::RawResponse& response)
     {
-      if (!options.EnableLayoutAwareRouting)
-      {
-        return false;
-      }
-      if (options.Range.HasValue() && options.Range.Value().Length.HasValue()
-          && options.Range.Value().Length.Value() < _detail::DataLocalityMinimumDownloadSize)
-      {
-        return false;
-      }
-      return destinationSize == nullptr
-          || *destinationSize >= static_cast<size_t>(_detail::DataLocalityMinimumDownloadSize);
+      const auto& headers = response.GetHeaders();
+      const auto hint = headers.find("x-ms-download-hint");
+      return hint != headers.end()
+          && Azure::Core::_internal::StringExtensions::ToLower(hint->second) == "layout";
     }
 
     std::unique_ptr<_detail::DataLocalityLayoutState> CreateDataLocalityLayoutState(
         BlobClient blobClient,
         Azure::Nullable<Azure::Core::Http::HttpRange> range,
+        Azure::ETag eTag,
         Azure::Core::Context context)
     {
       auto refresher = [range = std::move(range),
+                        eTag = std::move(eTag),
                         context = std::move(context),
                         blobClient = std::move(blobClient)]() {
         try
         {
           GetBlobLayoutOptions options;
           options.Range = range;
+          options.AccessConditions.IfMatch = eTag;
           auto page = blobClient.GetLayout(options, context);
           _detail::DataLocalityLayout layout;
           for (; page.HasPage(); page.MoveToNextPage(context))
@@ -458,11 +453,13 @@ namespace Azure { namespace Storage { namespace Blobs {
     protocolLayerOptions.IfUnmodifiedSince = options.AccessConditions.IfUnmodifiedSince;
     protocolLayerOptions.IfMatch = options.AccessConditions.IfMatch;
     protocolLayerOptions.IfNoneMatch = options.AccessConditions.IfNoneMatch;
-    if (m_customerProvidedKey.HasValue())
+    if (m_clientConfiguration.CustomerProvidedKey.HasValue())
     {
-      protocolLayerOptions.EncryptionKey = m_customerProvidedKey.Value().Key;
-      protocolLayerOptions.EncryptionKeySha256 = m_customerProvidedKey.Value().KeyHash;
-      protocolLayerOptions.EncryptionAlgorithm = m_customerProvidedKey.Value().Algorithm.ToString();
+      protocolLayerOptions.EncryptionKey = m_clientConfiguration.CustomerProvidedKey.Value().Key;
+      protocolLayerOptions.EncryptionKeySha256
+          = m_clientConfiguration.CustomerProvidedKey.Value().KeyHash;
+      protocolLayerOptions.EncryptionAlgorithm
+          = m_clientConfiguration.CustomerProvidedKey.Value().Algorithm.ToString();
     }
 
     auto response
@@ -534,46 +531,17 @@ namespace Azure { namespace Storage { namespace Blobs {
       firstChunkLength = (std::min)(firstChunkLength, options.Range.Value().Length.Value());
     }
 
-    std::unique_ptr<_detail::DataLocalityLayoutState> dataLocalityState;
-    if (ShouldUseDataLocality(options, &bufferSize))
-    {
-      dataLocalityState = CreateDataLocalityLayoutState(*this, options.Range, context);
-      dataLocalityState->WaitForInitialLayout();
-      if (!dataLocalityState->HasLayout())
-      {
-        dataLocalityState.reset();
-      }
-    }
-
     DownloadBlobOptions firstChunkOptions;
     firstChunkOptions.Range = options.Range;
-    if (dataLocalityState && !firstChunkOptions.Range.HasValue()
-        && dataLocalityState->GetBlobSize() > firstChunkLength)
+    if (!firstChunkOptions.Range.HasValue())
     {
-      // Without a caller-specified range, the download starts at offset zero. Limit the initial
-      // request so the service does not start streaming the entire blob.
       firstChunkOptions.Range = Core::Http::HttpRange();
       firstChunkOptions.Range.Value().Offset = 0;
     }
-    if (firstChunkOptions.Range.HasValue())
-    {
-      firstChunkOptions.Range.Value().Length = firstChunkLength;
-    }
-    if (dataLocalityState)
-    {
-      const auto layoutETag = dataLocalityState->GetETag();
-      if (layoutETag.HasValue())
-      {
-        firstChunkOptions.AccessConditions.IfMatch = layoutETag;
-      }
-    }
+    firstChunkOptions.Range.Value().Length = firstChunkLength;
     firstChunkOptions.ValidationOptions = options.ValidationOptions;
 
-    const auto firstChunkContext = dataLocalityState
-        ? _internal::WithDataLocalityEndpoint(
-            context, dataLocalityState->GetEndpoint(firstChunkOffset, firstChunkLength))
-        : context;
-    auto firstChunk = Download(firstChunkOptions, firstChunkContext);
+    auto firstChunk = Download(firstChunkOptions, context);
     const Azure::ETag eTag = firstChunk.Value.Details.ETag;
 
     const int64_t blobSize = firstChunk.Value.BlobSize;
@@ -591,12 +559,29 @@ namespace Azure { namespace Storage { namespace Blobs {
       blobRangeSize = blobSize;
     }
     firstChunkLength = (std::min)(firstChunkLength, blobRangeSize);
+    const int64_t remainingOffset = firstChunkOffset + firstChunkLength;
+    const int64_t remainingSize = blobRangeSize - firstChunkLength;
 
     if (static_cast<uint64_t>(blobRangeSize) > (std::numeric_limits<size_t>::max)()
         || static_cast<size_t>(blobRangeSize) > bufferSize)
     {
       throw Azure::Core::RequestFailedException(
           "Buffer is not big enough, blob range size is " + std::to_string(blobRangeSize) + ".");
+    }
+
+    std::unique_ptr<_detail::DataLocalityLayoutState> dataLocalityState;
+    if (remainingSize > 0 && options.EnableLayoutAwareRouting
+        && HasDataLocalityHint(*firstChunk.RawResponse))
+    {
+      Core::Http::HttpRange remainingRange;
+      remainingRange.Offset = remainingOffset;
+      remainingRange.Length = remainingSize;
+      dataLocalityState = CreateDataLocalityLayoutState(*this, remainingRange, eTag, context);
+      dataLocalityState->WaitForInitialLayout();
+      if (!dataLocalityState->HasLayout())
+      {
+        dataLocalityState.reset();
+      }
     }
 
     auto returnTypeConverter = [](Azure::Response<Models::DownloadBlobResult>& response) {
@@ -638,9 +623,6 @@ namespace Azure { namespace Storage { namespace Blobs {
             }
           };
 
-    int64_t remainingOffset = firstChunkOffset + firstChunkLength;
-    int64_t remainingSize = blobRangeSize - firstChunkLength;
-
     std::future<void> remainingDownload;
     if (remainingSize > 0 && options.TransferOptions.Concurrency > 1)
     {
@@ -656,7 +638,7 @@ namespace Azure { namespace Storage { namespace Blobs {
     }
 
     int64_t bytesRead = firstChunk.Value.BodyStream->ReadToCount(
-        buffer, static_cast<size_t>(firstChunkLength), firstChunkContext);
+        buffer, static_cast<size_t>(firstChunkLength), context);
     if (bytesRead != firstChunkLength)
     {
       throw Azure::Core::RequestFailedException("Error when reading body stream.");
@@ -703,46 +685,17 @@ namespace Azure { namespace Storage { namespace Blobs {
       firstChunkLength = (std::min)(firstChunkLength, options.Range.Value().Length.Value());
     }
 
-    std::unique_ptr<_detail::DataLocalityLayoutState> dataLocalityState;
-    if (ShouldUseDataLocality(options))
-    {
-      dataLocalityState = CreateDataLocalityLayoutState(*this, options.Range, context);
-      dataLocalityState->WaitForInitialLayout();
-      if (!dataLocalityState->HasLayout())
-      {
-        dataLocalityState.reset();
-      }
-    }
-
     DownloadBlobOptions firstChunkOptions;
     firstChunkOptions.Range = options.Range;
-    if (dataLocalityState && !firstChunkOptions.Range.HasValue()
-        && dataLocalityState->GetBlobSize() > firstChunkLength)
+    if (!firstChunkOptions.Range.HasValue())
     {
-      // Without a caller-specified range, the download starts at offset zero. Limit the initial
-      // request so the service does not start streaming the entire blob.
       firstChunkOptions.Range = Core::Http::HttpRange();
       firstChunkOptions.Range.Value().Offset = 0;
     }
-    if (firstChunkOptions.Range.HasValue())
-    {
-      firstChunkOptions.Range.Value().Length = firstChunkLength;
-    }
-    if (dataLocalityState)
-    {
-      const auto layoutETag = dataLocalityState->GetETag();
-      if (layoutETag.HasValue())
-      {
-        firstChunkOptions.AccessConditions.IfMatch = layoutETag;
-      }
-    }
+    firstChunkOptions.Range.Value().Length = firstChunkLength;
     firstChunkOptions.ValidationOptions = options.ValidationOptions;
 
-    const auto firstChunkContext = dataLocalityState
-        ? _internal::WithDataLocalityEndpoint(
-            context, dataLocalityState->GetEndpoint(firstChunkOffset, firstChunkLength))
-        : context;
-    auto firstChunk = Download(firstChunkOptions, firstChunkContext);
+    auto firstChunk = Download(firstChunkOptions, context);
     const Azure::ETag eTag = firstChunk.Value.Details.ETag;
 
     const int64_t blobSize = firstChunk.Value.BlobSize;
@@ -760,6 +713,23 @@ namespace Azure { namespace Storage { namespace Blobs {
       blobRangeSize = blobSize;
     }
     firstChunkLength = (std::min)(firstChunkLength, blobRangeSize);
+    const int64_t remainingOffset = firstChunkOffset + firstChunkLength;
+    const int64_t remainingSize = blobRangeSize - firstChunkLength;
+
+    std::unique_ptr<_detail::DataLocalityLayoutState> dataLocalityState;
+    if (remainingSize > 0 && options.EnableLayoutAwareRouting
+        && HasDataLocalityHint(*firstChunk.RawResponse))
+    {
+      Core::Http::HttpRange remainingRange;
+      remainingRange.Offset = remainingOffset;
+      remainingRange.Length = remainingSize;
+      dataLocalityState = CreateDataLocalityLayoutState(*this, remainingRange, eTag, context);
+      dataLocalityState->WaitForInitialLayout();
+      if (!dataLocalityState->HasLayout())
+      {
+        dataLocalityState.reset();
+      }
+    }
 
     auto bodyStreamToFile = [](Azure::Core::IO::BodyStream& stream,
                                _internal::FileWriter& fileWriter,
@@ -821,9 +791,6 @@ namespace Azure { namespace Storage { namespace Blobs {
             }
           };
 
-    int64_t remainingOffset = firstChunkOffset + firstChunkLength;
-    int64_t remainingSize = blobRangeSize - firstChunkLength;
-
     std::future<void> remainingDownload;
     if (remainingSize > 0 && options.TransferOptions.Concurrency > 1)
     {
@@ -838,8 +805,7 @@ namespace Azure { namespace Storage { namespace Blobs {
       });
     }
 
-    bodyStreamToFile(
-        *(firstChunk.Value.BodyStream), fileWriter, 0, firstChunkLength, firstChunkContext);
+    bodyStreamToFile(*(firstChunk.Value.BodyStream), fileWriter, 0, firstChunkLength, context);
     firstChunk.Value.BodyStream.reset();
 
     if (remainingDownload.valid())
