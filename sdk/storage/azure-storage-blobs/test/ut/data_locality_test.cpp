@@ -203,6 +203,12 @@ namespace Azure { namespace Storage { namespace Test {
       return options;
     }
 
+    std::vector<uint8_t> CreateLayoutAwareDownloadBuffer(size_t dataSize)
+    {
+      return std::vector<uint8_t>((std::max)(
+          dataSize, static_cast<size_t>(Blobs::_detail::DataLocalityMinimumDownloadSize)));
+    }
+
     Blobs::_detail::DataLocalityLayout CreateLayout(const std::string& endpoint)
     {
       Blobs::_detail::DataLocalityLayout layout;
@@ -289,11 +295,11 @@ namespace Azure { namespace Storage { namespace Test {
     }
     auto client = CreateLocalityClient(state, data);
 
-    std::vector<uint8_t> buffer(data->size());
+    auto buffer = CreateLayoutAwareDownloadBuffer(data->size());
     auto response = client.DownloadTo(buffer.data(), buffer.size(), CreateDownloadOptions());
 
     EXPECT_EQ(response.Value.BlobSize, static_cast<int64_t>(data->size()));
-    EXPECT_TRUE(std::equal(buffer.begin(), buffer.end(), data->begin()));
+    EXPECT_TRUE(std::equal(data->begin(), data->end(), buffer.begin()));
 
     std::lock_guard<std::mutex> lock(state->Mutex);
     ASSERT_EQ(state->Requests.size(), 16U);
@@ -339,7 +345,23 @@ namespace Azure { namespace Storage { namespace Test {
     }
   }
 
-  TEST(DataLocalityTest, RoutesToEndpointWithLargestOverlap)
+  TEST(DataLocalityTest, SkipsLayoutForSmallBufferDownload)
+  {
+    auto state = std::make_shared<LocalityState>();
+    auto data = std::make_shared<std::string>(1024 * 1024, 's');
+    auto client = CreateLocalityClient(state, data);
+
+    std::vector<uint8_t> buffer(data->size());
+    client.DownloadTo(buffer.data(), buffer.size(), CreateDownloadOptions());
+    EXPECT_TRUE(std::equal(buffer.begin(), buffer.end(), data->begin()));
+
+    std::lock_guard<std::mutex> lock(state->Mutex);
+    ASSERT_EQ(state->Requests.size(), 1U);
+    EXPECT_FALSE(state->Requests.front().IsLayout);
+    EXPECT_EQ(state->Requests.front().Host, "primary.test");
+  }
+
+  TEST(DataLocalityTest, SkipsLayoutForSmallRangeDownload)
   {
     auto state = std::make_shared<LocalityState>();
     auto data = std::make_shared<std::string>(1024 * 1024, 'o');
@@ -357,9 +379,34 @@ namespace Azure { namespace Storage { namespace Test {
     EXPECT_TRUE(std::equal(buffer.begin(), buffer.end(), data->begin() + offset));
 
     std::lock_guard<std::mutex> lock(state->Mutex);
-    ASSERT_EQ(state->Requests.size(), 2U);
-    EXPECT_EQ(state->Requests[1].Range, "bytes=204800-614399");
-    EXPECT_EQ(state->Requests[1].Host, "locality1.test");
+    ASSERT_EQ(state->Requests.size(), 1U);
+    EXPECT_FALSE(state->Requests.front().IsLayout);
+    EXPECT_EQ(state->Requests.front().Range, "bytes=204800-614399");
+    EXPECT_EQ(state->Requests.front().Host, "primary.test");
+  }
+
+  TEST(DataLocalityTest, SkipsLayoutForSmallFileDownload)
+  {
+    auto state = std::make_shared<LocalityState>();
+    auto data = std::make_shared<std::string>(1024 * 1024, 'f');
+    auto client = CreateLocalityClient(state, data);
+    const std::string fileName = Core::Uuid::CreateUuid().ToString() + ".tmp";
+    auto options = CreateDownloadOptions();
+    options.Range = Core::Http::HttpRange();
+    options.Range.Value().Offset = 0;
+    options.Range.Value().Length = static_cast<int64_t>(data->size());
+
+    client.DownloadTo(fileName, options);
+    std::ifstream file(fileName, std::ios::binary);
+    const std::string downloaded((std::istreambuf_iterator<char>(file)), {});
+    file.close();
+    std::remove(fileName.c_str());
+    EXPECT_EQ(downloaded, *data);
+
+    std::lock_guard<std::mutex> lock(state->Mutex);
+    ASSERT_EQ(state->Requests.size(), 1U);
+    EXPECT_FALSE(state->Requests.front().IsLayout);
+    EXPECT_EQ(state->Requests.front().Host, "primary.test");
   }
 
   TEST(DataLocalityTest, ReadsAllLayoutPages)
@@ -369,9 +416,9 @@ namespace Azure { namespace Storage { namespace Test {
     auto data = std::make_shared<std::string>(1024 * 1024, 'p');
     auto client = CreateLocalityClient(state, data);
 
-    std::vector<uint8_t> buffer(data->size());
+    auto buffer = CreateLayoutAwareDownloadBuffer(data->size());
     client.DownloadTo(buffer.data(), buffer.size(), CreateDownloadOptions());
-    EXPECT_TRUE(std::equal(buffer.begin(), buffer.end(), data->begin()));
+    EXPECT_TRUE(std::equal(data->begin(), data->end(), buffer.begin()));
 
     std::lock_guard<std::mutex> lock(state->Mutex);
     ASSERT_EQ(state->Requests.size(), 17U);
@@ -391,9 +438,9 @@ namespace Azure { namespace Storage { namespace Test {
       auto data = std::make_shared<std::string>(1024 * 1024, 'x');
       auto client = CreateLocalityClient(state, data);
 
-      std::vector<uint8_t> buffer(data->size());
+      auto buffer = CreateLayoutAwareDownloadBuffer(data->size());
       EXPECT_NO_THROW(client.DownloadTo(buffer.data(), buffer.size(), CreateDownloadOptions()));
-      EXPECT_TRUE(std::equal(buffer.begin(), buffer.end(), data->begin()));
+      EXPECT_TRUE(std::equal(data->begin(), data->end(), buffer.begin()));
 
       std::lock_guard<std::mutex> lock(state->Mutex);
       ASSERT_GT(state->Requests.size(), 1U);
@@ -413,7 +460,7 @@ namespace Azure { namespace Storage { namespace Test {
     auto data = std::make_shared<std::string>(1024 * 1024, 'x');
     auto client = CreateLocalityClient(state, data);
 
-    std::vector<uint8_t> buffer(data->size());
+    auto buffer = CreateLayoutAwareDownloadBuffer(data->size());
     EXPECT_THROW(
         client.DownloadTo(buffer.data(), buffer.size(), CreateDownloadOptions()), StorageException);
   }
@@ -425,9 +472,9 @@ namespace Azure { namespace Storage { namespace Test {
     auto data = std::make_shared<std::string>(1024 * 1024, 'x');
     auto client = CreateLocalityClient(state, data);
 
-    std::vector<uint8_t> buffer(data->size());
+    auto buffer = CreateLayoutAwareDownloadBuffer(data->size());
     EXPECT_NO_THROW(client.DownloadTo(buffer.data(), buffer.size(), CreateDownloadOptions()));
-    EXPECT_TRUE(std::equal(buffer.begin(), buffer.end(), data->begin()));
+    EXPECT_TRUE(std::equal(data->begin(), data->end(), buffer.begin()));
 
     std::lock_guard<std::mutex> lock(state->Mutex);
     ASSERT_GT(state->Requests.size(), 1U);
