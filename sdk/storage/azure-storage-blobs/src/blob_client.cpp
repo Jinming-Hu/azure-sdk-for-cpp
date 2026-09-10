@@ -38,6 +38,23 @@ namespace Azure { namespace Storage { namespace Blobs {
   }
 
   namespace {
+    bool ShouldUseDataLocality(
+        const DownloadBlobToOptions& options,
+        const size_t* destinationSize = nullptr)
+    {
+      if (!options.EnableLayoutAwareRouting)
+      {
+        return false;
+      }
+      if (options.Range.HasValue() && options.Range.Value().Length.HasValue()
+          && options.Range.Value().Length.Value() < _detail::DataLocalityMinimumDownloadSize)
+      {
+        return false;
+      }
+      return destinationSize == nullptr
+          || *destinationSize >= static_cast<size_t>(_detail::DataLocalityMinimumDownloadSize);
+    }
+
     std::unique_ptr<_detail::DataLocalityLayoutState> CreateDataLocalityLayoutState(
         BlobClient blobClient,
         Azure::Nullable<Azure::Core::Http::HttpRange> range,
@@ -518,7 +535,7 @@ namespace Azure { namespace Storage { namespace Blobs {
     }
 
     std::unique_ptr<_detail::DataLocalityLayoutState> dataLocalityState;
-    if (options.EnableLayoutAwareRouting)
+    if (ShouldUseDataLocality(options, &bufferSize))
     {
       dataLocalityState = CreateDataLocalityLayoutState(*this, options.Range, context);
       dataLocalityState->WaitForInitialLayout();
@@ -687,7 +704,7 @@ namespace Azure { namespace Storage { namespace Blobs {
     }
 
     std::unique_ptr<_detail::DataLocalityLayoutState> dataLocalityState;
-    if (options.EnableLayoutAwareRouting)
+    if (ShouldUseDataLocality(options))
     {
       dataLocalityState = CreateDataLocalityLayoutState(*this, options.Range, context);
       dataLocalityState->WaitForInitialLayout();

@@ -18,6 +18,7 @@ namespace Azure { namespace Storage { namespace Blobs { namespace _detail {
 
   constexpr std::chrono::minutes DataLocalityLayoutValidity{5};
   constexpr std::chrono::minutes DataLocalityLayoutExtendedExpiry{5};
+  constexpr int64_t DataLocalityMinimumDownloadSize{16 * 1024 * 1024};
 
   struct DataLocalityLayout final
   {
