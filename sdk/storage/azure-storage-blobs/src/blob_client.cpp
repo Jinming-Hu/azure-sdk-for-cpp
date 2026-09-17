@@ -535,12 +535,10 @@ namespace Azure { namespace Storage { namespace Blobs {
 
     DownloadBlobOptions firstChunkOptions;
     firstChunkOptions.Range = options.Range;
-    if (!firstChunkOptions.Range.HasValue())
+    if (firstChunkOptions.Range.HasValue())
     {
-      firstChunkOptions.Range = Core::Http::HttpRange();
-      firstChunkOptions.Range.Value().Offset = 0;
+      firstChunkOptions.Range.Value().Length = firstChunkLength;
     }
-    firstChunkOptions.Range.Value().Length = firstChunkLength;
     firstChunkOptions.ValidationOptions = options.ValidationOptions;
 
     auto firstChunk = Download(firstChunkOptions, context);
@@ -689,12 +687,10 @@ namespace Azure { namespace Storage { namespace Blobs {
 
     DownloadBlobOptions firstChunkOptions;
     firstChunkOptions.Range = options.Range;
-    if (!firstChunkOptions.Range.HasValue())
+    if (firstChunkOptions.Range.HasValue())
     {
-      firstChunkOptions.Range = Core::Http::HttpRange();
-      firstChunkOptions.Range.Value().Offset = 0;
+      firstChunkOptions.Range.Value().Length = firstChunkLength;
     }
-    firstChunkOptions.Range.Value().Length = firstChunkLength;
     firstChunkOptions.ValidationOptions = options.ValidationOptions;
 
     auto firstChunk = Download(firstChunkOptions, context);

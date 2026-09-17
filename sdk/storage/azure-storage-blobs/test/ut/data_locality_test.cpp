@@ -305,7 +305,7 @@ namespace Azure { namespace Storage { namespace Test {
     ASSERT_EQ(state->Requests.size(), 16U);
     EXPECT_FALSE(state->Requests[0].IsLayout);
     EXPECT_EQ(state->Requests[0].Host, "primary.test");
-    EXPECT_EQ(state->Requests[0].Range, "bytes=0-131071");
+    EXPECT_TRUE(state->Requests[0].Range.empty());
     EXPECT_TRUE(state->Requests[1].IsLayout);
     EXPECT_EQ(state->Requests[1].Range, "bytes=131072-1048575");
     EXPECT_EQ(state->Requests[1].IfMatch, "\"locality-etag\"");
@@ -344,6 +344,7 @@ namespace Azure { namespace Storage { namespace Test {
     ASSERT_EQ(state->Requests.size(), 16U);
     EXPECT_FALSE(state->Requests[0].IsLayout);
     EXPECT_EQ(state->Requests[0].Host, "primary.test");
+    EXPECT_TRUE(state->Requests[0].Range.empty());
     EXPECT_TRUE(state->Requests[1].IsLayout);
     for (auto request = state->Requests.begin() + 2; request != state->Requests.end(); ++request)
     {
@@ -367,6 +368,48 @@ namespace Azure { namespace Storage { namespace Test {
     ASSERT_EQ(state->Requests.size(), 1U);
     EXPECT_FALSE(state->Requests.front().IsLayout);
     EXPECT_EQ(state->Requests.front().Host, "primary.test");
+    EXPECT_TRUE(state->Requests.front().Range.empty());
+  }
+
+  TEST(DataLocalityTest, DownloadsEmptyBlobWithoutRange)
+  {
+    auto data = std::make_shared<std::string>();
+
+    {
+      auto state = std::make_shared<LocalityState>();
+      auto client = CreateLocalityClient(state, data);
+      std::vector<uint8_t> buffer;
+
+      auto response = client.DownloadTo(buffer.data(), buffer.size(), CreateDownloadOptions());
+      EXPECT_EQ(response.Value.BlobSize, 0);
+      EXPECT_EQ(response.Value.ContentRange.Length.Value(), 0);
+
+      std::lock_guard<std::mutex> lock(state->Mutex);
+      ASSERT_EQ(state->Requests.size(), 1U);
+      EXPECT_FALSE(state->Requests.front().IsLayout);
+      EXPECT_TRUE(state->Requests.front().Range.empty());
+    }
+
+    {
+      auto state = std::make_shared<LocalityState>();
+      auto client = CreateLocalityClient(state, data);
+      const std::string fileName = Core::Uuid::CreateUuid().ToString() + ".tmp";
+
+      auto response = client.DownloadTo(fileName, CreateDownloadOptions());
+      EXPECT_EQ(response.Value.BlobSize, 0);
+      EXPECT_EQ(response.Value.ContentRange.Length.Value(), 0);
+
+      std::ifstream file(fileName, std::ios::binary);
+      const std::string downloaded((std::istreambuf_iterator<char>(file)), {});
+      file.close();
+      std::remove(fileName.c_str());
+      EXPECT_TRUE(downloaded.empty());
+
+      std::lock_guard<std::mutex> lock(state->Mutex);
+      ASSERT_EQ(state->Requests.size(), 1U);
+      EXPECT_FALSE(state->Requests.front().IsLayout);
+      EXPECT_TRUE(state->Requests.front().Range.empty());
+    }
   }
 
   TEST(DataLocalityTest, CompletesSingleRangeDownloadBeforeLayout)
