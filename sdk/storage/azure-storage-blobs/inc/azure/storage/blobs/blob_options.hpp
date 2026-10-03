@@ -823,7 +823,7 @@ namespace Azure { namespace Storage { namespace Blobs {
        * downloaded in a single request. Blobs larger than this limit will continue being downloaded
        * in chunks of size ChunkSize.
        */
-      int64_t InitialChunkSize = 256 * 1024 * 1024;
+      int64_t InitialChunkSize = 4 * 1024 * 1024;
 
       /**
        * @brief The maximum number of bytes in a single request.
@@ -1069,7 +1069,7 @@ namespace Azure { namespace Storage { namespace Blobs {
        * @brief Blob smaller than this will be uploaded with a single upload operation. This value
        * cannot be larger than 5000 MiB.
        */
-      int64_t SingleUploadThreshold = 256 * 1024 * 1024;
+      int64_t SingleUploadThreshold = 4 * 1024 * 1024;
 
       /**
        * @brief The maximum number of bytes in a single request. This value cannot be larger than

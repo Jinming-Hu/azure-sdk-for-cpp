@@ -6,6 +6,10 @@
 
 ### Breaking Changes
 
+- Changed the default initial transfer size for partitioned uploads and downloads from 256 MiB to
+  4 MiB, matching the default subsequent chunk size. Explicitly configured
+  `InitialChunkSize` and `SingleUploadThreshold` values are still respected.
+
 ### Bugs Fixed
 
 ### Other Changes

@@ -1031,7 +1031,7 @@ namespace Azure { namespace Storage { namespace Files { namespace DataLake {
        * File smaller than this will be uploaded with a single upload operation. This value
        * cannot be larger than 5000 MiB.
        */
-      int64_t SingleUploadThreshold = 256 * 1024 * 1024;
+      int64_t SingleUploadThreshold = 4 * 1024 * 1024;
 
       /**
        * The maximum number of bytes in a single request. This value cannot be larger than
