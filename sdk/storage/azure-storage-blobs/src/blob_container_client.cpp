@@ -1484,7 +1484,7 @@ namespace Azure { namespace Storage { namespace Blobs {
     auto expectResponseFormat = options.ResponseFormat;
     if (expectResponseFormat == StorageResponseFormat::Auto)
     {
-      expectResponseFormat = StorageResponseFormat::Xml;
+      expectResponseFormat = StorageResponseFormat::Arrow;
     }
     if (expectResponseFormat == StorageResponseFormat::Arrow)
     {
@@ -1541,7 +1541,7 @@ namespace Azure { namespace Storage { namespace Blobs {
     auto expectResponseFormat = options.ResponseFormat;
     if (expectResponseFormat == StorageResponseFormat::Auto)
     {
-      expectResponseFormat = StorageResponseFormat::Xml;
+      expectResponseFormat = StorageResponseFormat::Arrow;
     }
     if (expectResponseFormat == StorageResponseFormat::Arrow)
     {

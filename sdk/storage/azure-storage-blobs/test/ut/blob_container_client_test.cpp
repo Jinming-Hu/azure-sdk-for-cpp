@@ -239,7 +239,7 @@ namespace Azure { namespace Storage { namespace Test {
     }
 
     for (const auto format :
-         {Blobs::StorageResponseFormat::Arrow, Blobs::StorageResponseFormat::Xml})
+         {Blobs::StorageResponseFormat::Auto, Blobs::StorageResponseFormat::Xml})
     {
 
       Azure::Storage::Blobs::ListBlobsOptions options;
@@ -256,10 +256,17 @@ namespace Azure { namespace Storage { namespace Test {
         EXPECT_FALSE(pageResult.RawResponse->GetHeaders().at(_internal::HttpHeaderDate).empty());
         EXPECT_FALSE(
             pageResult.RawResponse->GetHeaders().at(_internal::HttpHeaderXMsVersion).empty());
+        const auto& contentType
+            = pageResult.RawResponse->GetHeaders().at(_internal::HttpHeaderContentType);
         if (format == Blobs::StorageResponseFormat::Xml)
         {
+          EXPECT_NE(contentType.find(_internal::ContentTypeXml), std::string::npos);
           EXPECT_FALSE(pageResult.ServiceEndpoint.empty());
           EXPECT_EQ(pageResult.BlobContainerName, m_containerName);
+        }
+        else
+        {
+          EXPECT_NE(contentType.find(_internal::ContentTypeApacheArrowStream), std::string::npos);
         }
         for (const auto& blob : pageResult.Blobs)
         {
