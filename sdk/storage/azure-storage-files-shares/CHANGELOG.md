@@ -4,6 +4,7 @@
 
 ### Features Added
 
+- Bumped up API version to `2027-03-07`.
 - Added NFS List Files V2 support to `ShareDirectoryClient::ListFilesAndDirectories`.
   - Added `Permissions`, `LinkCount`, and `NfsAttributes` listing traits.
   - Added POSIX properties for listed files and directories, including owner, group, file mode,
