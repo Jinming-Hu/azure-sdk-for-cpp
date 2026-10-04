@@ -1389,41 +1389,42 @@ namespace Azure { namespace Storage { namespace Files { namespace Shares {
         std::string Content;
       };
     } // namespace _detail
-    /**
-     * @brief File properties.
-     */
-    struct DirectoryItemDetails final
-    {
-      /**
-       * The time the directory was last accessed.
-       */
-      Nullable<DateTime> LastAccessedOn;
-      /**
-       * The date and time the directory was last modified.
-       */
-      DateTime LastModified;
-      /**
-       * The ETag contains a value which represents the version of the directory, in quotes.
-       */
-      ETag Etag;
-      /**
-       * NFS only. The owner of the file or directory.
-       */
-      std::string Owner;
-      /**
-       * NFS only. The owning group of the file or directory.
-       */
-      std::string Group;
-      /**
-       *  NFS only. The mode of the file or directory.
-       */
-      std::string FileMode;
-      /**
-       * The SMB related properties for the file.
-       */
-      FileSmbProperties SmbProperties;
-    };
     namespace _detail {
+      /**
+       * @brief File properties.
+       */
+      struct DirectoryItemDetails final
+      {
+        /**
+         * The time the directory was last accessed.
+         */
+        Nullable<DateTime> LastAccessedOn;
+        /**
+         * The date and time the directory was last modified.
+         */
+        DateTime LastModified;
+        /**
+         * The ETag contains a value which represents the version of the directory, in quotes.
+         */
+        ETag Etag;
+        /**
+         * NFS only. The owner of the file or directory.
+         */
+        std::string Owner;
+        /**
+         * NFS only. The owning group of the file or directory.
+         */
+        std::string Group;
+        /**
+         *  NFS only. The mode of the file or directory.
+         */
+        std::string FileMode;
+        /**
+         * The SMB related properties for the file.
+         */
+        FileSmbProperties SmbProperties;
+      };
+
       /**
        * @brief A listed directory item.
        */
@@ -1437,48 +1438,49 @@ namespace Azure { namespace Storage { namespace Files { namespace Shares {
         DirectoryItemDetails Details;
       };
     } // namespace _detail
-    /**
-     * @brief File properties.
-     */
-    struct FileItemDetails final
-    {
-      /**
-       * Content length of the file. This value may not be up-to-date since an SMB client may have
-       * modified the file locally. The value of Content-Length may not reflect that fact until the
-       * handle is closed or the op-lock is broken. To retrieve current property values, call Get
-       * File Properties.
-       */
-      std::int64_t FileSize = std::int64_t();
-      /**
-       * The time the file was last accessed.
-       */
-      Nullable<DateTime> LastAccessedOn;
-      /**
-       * The date and time the file was last modified.
-       */
-      DateTime LastModified;
-      /**
-       * The ETag contains a value which represents the version of the file, in quotes.
-       */
-      ETag Etag;
-      /**
-       * NFS only. The owner of the file or directory.
-       */
-      std::string Owner;
-      /**
-       * NFS only. The owning group of the file or directory.
-       */
-      std::string Group;
-      /**
-       *  NFS only. The mode of the file or directory.
-       */
-      std::string FileMode;
-      /**
-       * The SMB related properties for the file.
-       */
-      FileSmbProperties SmbProperties;
-    };
     namespace _detail {
+      /**
+       * @brief File properties.
+       */
+      struct FileItemDetails final
+      {
+        /**
+         * Content length of the file. This value may not be up-to-date since an SMB client may
+         * have modified the file locally. The value of Content-Length may not reflect that fact
+         * until the handle is closed or the op-lock is broken. To retrieve current property
+         * values, call Get File Properties.
+         */
+        std::int64_t FileSize = std::int64_t();
+        /**
+         * The time the file was last accessed.
+         */
+        Nullable<DateTime> LastAccessedOn;
+        /**
+         * The date and time the file was last modified.
+         */
+        DateTime LastModified;
+        /**
+         * The ETag contains a value which represents the version of the file, in quotes.
+         */
+        ETag Etag;
+        /**
+         * NFS only. The owner of the file or directory.
+         */
+        std::string Owner;
+        /**
+         * NFS only. The owning group of the file or directory.
+         */
+        std::string Group;
+        /**
+         *  NFS only. The mode of the file or directory.
+         */
+        std::string FileMode;
+        /**
+         * The SMB related properties for the file.
+         */
+        FileSmbProperties SmbProperties;
+      };
+
       /**
        * @brief A listed file item.
        */

@@ -17,6 +17,42 @@
 
 namespace Azure { namespace Storage { namespace Files { namespace Shares {
 
+  namespace {
+    Models::DirectoryItemDetails ToDirectoryItemDetails(
+        Models::_detail::DirectoryItemDetails details)
+    {
+      Models::DirectoryItemDetails result;
+      result.LastAccessedOn = std::move(details.LastAccessedOn);
+      result.LastModified = std::move(details.LastModified);
+      result.Etag = std::move(details.Etag);
+      result.Owner = std::move(details.Owner);
+      result.Group = std::move(details.Group);
+      if (!details.FileMode.empty())
+      {
+        result.FileMode = Models::NfsFileMode::ParseOctalFileMode(details.FileMode);
+      }
+      result.SmbProperties = std::move(details.SmbProperties);
+      return result;
+    }
+
+    Models::FileItemDetails ToFileItemDetails(Models::_detail::FileItemDetails details)
+    {
+      Models::FileItemDetails result;
+      result.FileSize = details.FileSize;
+      result.LastAccessedOn = std::move(details.LastAccessedOn);
+      result.LastModified = std::move(details.LastModified);
+      result.Etag = std::move(details.Etag);
+      result.Owner = std::move(details.Owner);
+      result.Group = std::move(details.Group);
+      if (!details.FileMode.empty())
+      {
+        result.FileMode = Models::NfsFileMode::ParseOctalFileMode(details.FileMode);
+      }
+      result.SmbProperties = std::move(details.SmbProperties);
+      return result;
+    }
+  } // namespace
+
   ShareDirectoryClient ShareDirectoryClient::CreateFromConnectionString(
       const std::string& connectionString,
       const std::string& shareName,
@@ -557,7 +593,7 @@ namespace Azure { namespace Storage { namespace Files { namespace Shares {
         directoryItem.Name = std::move(item.Name.Content);
       }
       directoryItem.LinkCount = std::move(item.LinkCount);
-      directoryItem.Details = std::move(item.Details);
+      directoryItem.Details = ToDirectoryItemDetails(std::move(item.Details));
       pagedResponse.Directories.push_back(std::move(directoryItem));
     }
     for (auto& item : response.Value.Segment.FileItems)
@@ -572,7 +608,7 @@ namespace Azure { namespace Storage { namespace Files { namespace Shares {
         fileItem.Name = std::move(item.Name.Content);
       }
       fileItem.LinkCount = std::move(item.LinkCount);
-      fileItem.Details = std::move(item.Details);
+      fileItem.Details = ToFileItemDetails(std::move(item.Details));
       pagedResponse.Files.push_back(std::move(fileItem));
     }
     for (auto& item : response.Value.Segment.SymLinkItems)
@@ -588,7 +624,7 @@ namespace Azure { namespace Storage { namespace Files { namespace Shares {
       }
       symLinkItem.LinkCount = std::move(item.LinkCount);
       symLinkItem.LinkText = std::move(item.LinkText);
-      symLinkItem.Details = std::move(item.Details);
+      symLinkItem.Details = ToFileItemDetails(std::move(item.Details));
       pagedResponse.SymLinks.push_back(std::move(symLinkItem));
     }
     for (auto& item : response.Value.Segment.BlockDeviceItems)
@@ -605,7 +641,7 @@ namespace Azure { namespace Storage { namespace Files { namespace Shares {
       blockDeviceItem.LinkCount = std::move(item.LinkCount);
       blockDeviceItem.DeviceMajor = std::move(item.DeviceMajor);
       blockDeviceItem.DeviceMinor = std::move(item.DeviceMinor);
-      blockDeviceItem.Details = std::move(item.Details);
+      blockDeviceItem.Details = ToFileItemDetails(std::move(item.Details));
       pagedResponse.BlockDevices.push_back(std::move(blockDeviceItem));
     }
     for (auto& item : response.Value.Segment.CharDeviceItems)
@@ -622,7 +658,7 @@ namespace Azure { namespace Storage { namespace Files { namespace Shares {
       charDeviceItem.LinkCount = std::move(item.LinkCount);
       charDeviceItem.DeviceMajor = std::move(item.DeviceMajor);
       charDeviceItem.DeviceMinor = std::move(item.DeviceMinor);
-      charDeviceItem.Details = std::move(item.Details);
+      charDeviceItem.Details = ToFileItemDetails(std::move(item.Details));
       pagedResponse.CharDevices.push_back(std::move(charDeviceItem));
     }
     for (auto& item : response.Value.Segment.FifoItems)
@@ -637,7 +673,7 @@ namespace Azure { namespace Storage { namespace Files { namespace Shares {
         fifoItem.Name = std::move(item.Name.Content);
       }
       fifoItem.LinkCount = std::move(item.LinkCount);
-      fifoItem.Details = std::move(item.Details);
+      fifoItem.Details = ToFileItemDetails(std::move(item.Details));
       pagedResponse.Fifos.push_back(std::move(fifoItem));
     }
     for (auto& item : response.Value.Segment.SocketItems)
@@ -652,7 +688,7 @@ namespace Azure { namespace Storage { namespace Files { namespace Shares {
         socketItem.Name = std::move(item.Name.Content);
       }
       socketItem.LinkCount = std::move(item.LinkCount);
-      socketItem.Details = std::move(item.Details);
+      socketItem.Details = ToFileItemDetails(std::move(item.Details));
       pagedResponse.Sockets.push_back(std::move(socketItem));
     }
     pagedResponse.DirectoryId = response.Value.DirectoryId.ValueOr(std::string());

@@ -368,6 +368,80 @@ namespace Azure { namespace Storage { namespace Files { namespace Shares {
     };
 
     /**
+     * @brief Properties of a listed directory.
+     */
+    struct DirectoryItemDetails final
+    {
+      /**
+       * The time the directory was last accessed.
+       */
+      Nullable<DateTime> LastAccessedOn;
+      /**
+       * The date and time the directory was last modified.
+       */
+      DateTime LastModified;
+      /**
+       * The ETag contains a value which represents the version of the directory, in quotes.
+       */
+      ETag Etag;
+      /**
+       * NFS only. The owner of the directory.
+       */
+      std::string Owner;
+      /**
+       * NFS only. The owning group of the directory.
+       */
+      std::string Group;
+      /**
+       * NFS only. The mode of the directory.
+       */
+      Nullable<NfsFileMode> FileMode;
+      /**
+       * The SMB related properties for the directory.
+       */
+      FileSmbProperties SmbProperties;
+    };
+
+    /**
+     * @brief Properties of a listed file.
+     */
+    struct FileItemDetails final
+    {
+      /**
+       * Content length of the file.
+       */
+      std::int64_t FileSize = std::int64_t();
+      /**
+       * The time the file was last accessed.
+       */
+      Nullable<DateTime> LastAccessedOn;
+      /**
+       * The date and time the file was last modified.
+       */
+      DateTime LastModified;
+      /**
+       * The ETag contains a value which represents the version of the file, in quotes.
+       */
+      ETag Etag;
+      /**
+       * NFS only. The owner of the file.
+       */
+      std::string Owner;
+      /**
+       * NFS only. The owning group of the file.
+       */
+      std::string Group;
+      /**
+       * NFS only. The mode of the file.
+       */
+      Nullable<NfsFileMode> FileMode;
+      /**
+       * The SMB related properties for the file.
+       */
+      FileSmbProperties SmbProperties;
+    };
+
+    /**
      * @brief A listed directory item.
      */
     struct DirectoryItem final
