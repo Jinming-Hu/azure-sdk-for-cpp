@@ -433,10 +433,6 @@ namespace Azure { namespace Storage { namespace Files { namespace Shares {
       /** @brief The name of the item */
       std::string Name;
       /**
-       * NFS only. The number of hard links to this item.
-       */
-      Azure::Nullable<std::int64_t> LinkCount;
-      /**
        * File properties.
        */
       DirectoryItemDetails Details;
@@ -449,10 +445,6 @@ namespace Azure { namespace Storage { namespace Files { namespace Shares {
     {
       /** @brief The name of the item */
       std::string Name;
-      /**
-       * NFS only. The number of hard links to this item.
-       */
-      Azure::Nullable<std::int64_t> LinkCount;
       /**
        * File properties.
        */
@@ -471,8 +463,6 @@ namespace Azure { namespace Storage { namespace Files { namespace Shares {
     {
       /** @brief The name of the item */
       std::string Name;
-      /** @brief The number of hard links to this item. */
-      Azure::Nullable<std::int64_t> LinkCount;
       /** @brief The target of the symbolic link. */
       Azure::Nullable<std::string> LinkText;
       /**
@@ -493,8 +483,6 @@ namespace Azure { namespace Storage { namespace Files { namespace Shares {
     {
       /** @brief The name of the item */
       std::string Name;
-      /** @brief The number of hard links to this item. */
-      Azure::Nullable<std::int64_t> LinkCount;
       /** @brief The major device number. */
       std::int64_t DeviceMajor = 0;
       /** @brief The minor device number. */
@@ -517,8 +505,6 @@ namespace Azure { namespace Storage { namespace Files { namespace Shares {
     {
       /** @brief The name of the item */
       std::string Name;
-      /** @brief The number of hard links to this item. */
-      Azure::Nullable<std::int64_t> LinkCount;
       /** @brief The major device number. */
       std::int64_t DeviceMajor = 0;
       /** @brief The minor device number. */
@@ -541,8 +527,6 @@ namespace Azure { namespace Storage { namespace Files { namespace Shares {
     {
       /** @brief The name of the item */
       std::string Name;
-      /** @brief The number of hard links to this item. */
-      Azure::Nullable<std::int64_t> LinkCount;
       /**
        * File properties.
        */
@@ -561,8 +545,6 @@ namespace Azure { namespace Storage { namespace Files { namespace Shares {
     {
       /** @brief The name of the item */
       std::string Name;
-      /** @brief The number of hard links to this item. */
-      Azure::Nullable<std::int64_t> LinkCount;
       /**
        * File properties.
        */

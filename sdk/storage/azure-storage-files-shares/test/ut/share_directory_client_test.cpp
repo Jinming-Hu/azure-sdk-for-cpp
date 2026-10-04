@@ -1505,8 +1505,8 @@ namespace Azure { namespace Storage { namespace Test {
       for (const auto& directory : page.Directories)
       {
         EXPECT_FALSE(directory.Name.empty());
-        ASSERT_TRUE(directory.LinkCount.HasValue());
-        EXPECT_GT(directory.LinkCount.Value(), 0);
+        ASSERT_TRUE(directory.Details.PosixProperties.LinkCount.HasValue());
+        EXPECT_GT(directory.Details.PosixProperties.LinkCount.Value(), 0);
         ASSERT_TRUE(directory.Details.PosixProperties.Owner.HasValue());
         EXPECT_FALSE(directory.Details.PosixProperties.Owner.Value().empty());
         ASSERT_TRUE(directory.Details.PosixProperties.Group.HasValue());
@@ -1519,8 +1519,8 @@ namespace Azure { namespace Storage { namespace Test {
       for (const auto& file : page.Files)
       {
         EXPECT_FALSE(file.Name.empty());
-        ASSERT_TRUE(file.LinkCount.HasValue());
-        EXPECT_GT(file.LinkCount.Value(), 0);
+        ASSERT_TRUE(file.Details.PosixProperties.LinkCount.HasValue());
+        EXPECT_GT(file.Details.PosixProperties.LinkCount.Value(), 0);
         EXPECT_GE(file.Details.FileSize, 0);
         ASSERT_TRUE(file.Details.PosixProperties.Owner.HasValue());
         EXPECT_FALSE(file.Details.PosixProperties.Owner.Value().empty());
@@ -1535,8 +1535,8 @@ namespace Azure { namespace Storage { namespace Test {
       {
         EXPECT_FALSE(symLink.Name.empty());
         EXPECT_FALSE(symLink.Details.SmbProperties.FileId.empty());
-        ASSERT_TRUE(symLink.LinkCount.HasValue());
-        EXPECT_GT(symLink.LinkCount.Value(), 0);
+        ASSERT_TRUE(symLink.Details.PosixProperties.LinkCount.HasValue());
+        EXPECT_GT(symLink.Details.PosixProperties.LinkCount.Value(), 0);
         ASSERT_TRUE(symLink.LinkText.HasValue());
         EXPECT_FALSE(symLink.LinkText.Value().empty());
         ASSERT_TRUE(symLink.Details.PosixProperties.Owner.HasValue());
@@ -1552,8 +1552,8 @@ namespace Azure { namespace Storage { namespace Test {
       {
         EXPECT_FALSE(blockDevice.Name.empty());
         EXPECT_FALSE(blockDevice.Details.SmbProperties.FileId.empty());
-        ASSERT_TRUE(blockDevice.LinkCount.HasValue());
-        EXPECT_GT(blockDevice.LinkCount.Value(), 0);
+        ASSERT_TRUE(blockDevice.Details.PosixProperties.LinkCount.HasValue());
+        EXPECT_GT(blockDevice.Details.PosixProperties.LinkCount.Value(), 0);
         EXPECT_GE(blockDevice.DeviceMajor, 0);
         EXPECT_GE(blockDevice.DeviceMinor, 0);
         ASSERT_TRUE(blockDevice.Details.PosixProperties.Owner.HasValue());
@@ -1570,8 +1570,8 @@ namespace Azure { namespace Storage { namespace Test {
       {
         EXPECT_FALSE(charDevice.Name.empty());
         EXPECT_FALSE(charDevice.Details.SmbProperties.FileId.empty());
-        ASSERT_TRUE(charDevice.LinkCount.HasValue());
-        EXPECT_GT(charDevice.LinkCount.Value(), 0);
+        ASSERT_TRUE(charDevice.Details.PosixProperties.LinkCount.HasValue());
+        EXPECT_GT(charDevice.Details.PosixProperties.LinkCount.Value(), 0);
         EXPECT_GE(charDevice.DeviceMajor, 0);
         EXPECT_GE(charDevice.DeviceMinor, 0);
         ASSERT_TRUE(charDevice.Details.PosixProperties.Owner.HasValue());
@@ -1587,8 +1587,8 @@ namespace Azure { namespace Storage { namespace Test {
       {
         EXPECT_FALSE(fifo.Name.empty());
         EXPECT_FALSE(fifo.Details.SmbProperties.FileId.empty());
-        ASSERT_TRUE(fifo.LinkCount.HasValue());
-        EXPECT_GT(fifo.LinkCount.Value(), 0);
+        ASSERT_TRUE(fifo.Details.PosixProperties.LinkCount.HasValue());
+        EXPECT_GT(fifo.Details.PosixProperties.LinkCount.Value(), 0);
         ASSERT_TRUE(fifo.Details.PosixProperties.Owner.HasValue());
         EXPECT_FALSE(fifo.Details.PosixProperties.Owner.Value().empty());
         ASSERT_TRUE(fifo.Details.PosixProperties.Group.HasValue());
@@ -1602,8 +1602,8 @@ namespace Azure { namespace Storage { namespace Test {
       {
         EXPECT_FALSE(socket.Name.empty());
         EXPECT_FALSE(socket.Details.SmbProperties.FileId.empty());
-        ASSERT_TRUE(socket.LinkCount.HasValue());
-        EXPECT_GT(socket.LinkCount.Value(), 0);
+        ASSERT_TRUE(socket.Details.PosixProperties.LinkCount.HasValue());
+        EXPECT_GT(socket.Details.PosixProperties.LinkCount.Value(), 0);
         ASSERT_TRUE(socket.Details.PosixProperties.Owner.HasValue());
         EXPECT_FALSE(socket.Details.PosixProperties.Owner.Value().empty());
         ASSERT_TRUE(socket.Details.PosixProperties.Group.HasValue());

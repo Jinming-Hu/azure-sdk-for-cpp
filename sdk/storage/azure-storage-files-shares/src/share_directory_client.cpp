@@ -592,8 +592,8 @@ namespace Azure { namespace Storage { namespace Files { namespace Shares {
       {
         directoryItem.Name = std::move(item.Name.Content);
       }
-      directoryItem.LinkCount = std::move(item.LinkCount);
       directoryItem.Details = ToDirectoryItemDetails(std::move(item.Details));
+      directoryItem.Details.PosixProperties.LinkCount = std::move(item.LinkCount);
       pagedResponse.Directories.push_back(std::move(directoryItem));
     }
     for (auto& item : response.Value.Segment.FileItems)
@@ -607,8 +607,8 @@ namespace Azure { namespace Storage { namespace Files { namespace Shares {
       {
         fileItem.Name = std::move(item.Name.Content);
       }
-      fileItem.LinkCount = std::move(item.LinkCount);
       fileItem.Details = ToFileItemDetails(std::move(item.Details));
+      fileItem.Details.PosixProperties.LinkCount = std::move(item.LinkCount);
       pagedResponse.Files.push_back(std::move(fileItem));
     }
     for (auto& item : response.Value.Segment.SymLinkItems)
@@ -622,9 +622,9 @@ namespace Azure { namespace Storage { namespace Files { namespace Shares {
       {
         symLinkItem.Name = std::move(item.Name.Content);
       }
-      symLinkItem.LinkCount = std::move(item.LinkCount);
       symLinkItem.LinkText = std::move(item.LinkText);
       symLinkItem.Details = ToFileItemDetails(std::move(item.Details));
+      symLinkItem.Details.PosixProperties.LinkCount = std::move(item.LinkCount);
       pagedResponse.SymLinks.push_back(std::move(symLinkItem));
     }
     for (auto& item : response.Value.Segment.BlockDeviceItems)
@@ -638,10 +638,10 @@ namespace Azure { namespace Storage { namespace Files { namespace Shares {
       {
         blockDeviceItem.Name = std::move(item.Name.Content);
       }
-      blockDeviceItem.LinkCount = std::move(item.LinkCount);
       blockDeviceItem.DeviceMajor = std::move(item.DeviceMajor);
       blockDeviceItem.DeviceMinor = std::move(item.DeviceMinor);
       blockDeviceItem.Details = ToFileItemDetails(std::move(item.Details));
+      blockDeviceItem.Details.PosixProperties.LinkCount = std::move(item.LinkCount);
       pagedResponse.BlockDevices.push_back(std::move(blockDeviceItem));
     }
     for (auto& item : response.Value.Segment.CharDeviceItems)
@@ -655,10 +655,10 @@ namespace Azure { namespace Storage { namespace Files { namespace Shares {
       {
         charDeviceItem.Name = std::move(item.Name.Content);
       }
-      charDeviceItem.LinkCount = std::move(item.LinkCount);
       charDeviceItem.DeviceMajor = std::move(item.DeviceMajor);
       charDeviceItem.DeviceMinor = std::move(item.DeviceMinor);
       charDeviceItem.Details = ToFileItemDetails(std::move(item.Details));
+      charDeviceItem.Details.PosixProperties.LinkCount = std::move(item.LinkCount);
       pagedResponse.CharDevices.push_back(std::move(charDeviceItem));
     }
     for (auto& item : response.Value.Segment.FifoItems)
@@ -672,8 +672,8 @@ namespace Azure { namespace Storage { namespace Files { namespace Shares {
       {
         fifoItem.Name = std::move(item.Name.Content);
       }
-      fifoItem.LinkCount = std::move(item.LinkCount);
       fifoItem.Details = ToFileItemDetails(std::move(item.Details));
+      fifoItem.Details.PosixProperties.LinkCount = std::move(item.LinkCount);
       pagedResponse.Fifos.push_back(std::move(fifoItem));
     }
     for (auto& item : response.Value.Segment.SocketItems)
@@ -687,8 +687,8 @@ namespace Azure { namespace Storage { namespace Files { namespace Shares {
       {
         socketItem.Name = std::move(item.Name.Content);
       }
-      socketItem.LinkCount = std::move(item.LinkCount);
       socketItem.Details = ToFileItemDetails(std::move(item.Details));
+      socketItem.Details.PosixProperties.LinkCount = std::move(item.LinkCount);
       pagedResponse.Sockets.push_back(std::move(socketItem));
     }
     pagedResponse.DirectoryId = response.Value.DirectoryId.ValueOr(std::string());
