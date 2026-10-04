@@ -1507,6 +1507,10 @@ namespace Azure { namespace Storage { namespace Test {
         EXPECT_FALSE(directory.Name.empty());
         ASSERT_TRUE(directory.Details.PosixProperties.LinkCount.HasValue());
         EXPECT_GT(directory.Details.PosixProperties.LinkCount.Value(), 0);
+        ASSERT_TRUE(directory.Details.PosixProperties.NfsFileType.HasValue());
+        EXPECT_EQ(
+            directory.Details.PosixProperties.NfsFileType.Value(),
+            Files::Shares::Models::NfsFileType::Directory);
         ASSERT_TRUE(directory.Details.PosixProperties.Owner.HasValue());
         EXPECT_FALSE(directory.Details.PosixProperties.Owner.Value().empty());
         ASSERT_TRUE(directory.Details.PosixProperties.Group.HasValue());
@@ -1521,6 +1525,10 @@ namespace Azure { namespace Storage { namespace Test {
         EXPECT_FALSE(file.Name.empty());
         ASSERT_TRUE(file.Details.PosixProperties.LinkCount.HasValue());
         EXPECT_GT(file.Details.PosixProperties.LinkCount.Value(), 0);
+        ASSERT_TRUE(file.Details.PosixProperties.NfsFileType.HasValue());
+        EXPECT_EQ(
+            file.Details.PosixProperties.NfsFileType.Value(),
+            Files::Shares::Models::NfsFileType::Regular);
         EXPECT_GE(file.Details.FileSize, 0);
         ASSERT_TRUE(file.Details.PosixProperties.Owner.HasValue());
         EXPECT_FALSE(file.Details.PosixProperties.Owner.Value().empty());
@@ -1537,6 +1545,10 @@ namespace Azure { namespace Storage { namespace Test {
         EXPECT_FALSE(symLink.Details.SmbProperties.FileId.empty());
         ASSERT_TRUE(symLink.Details.PosixProperties.LinkCount.HasValue());
         EXPECT_GT(symLink.Details.PosixProperties.LinkCount.Value(), 0);
+        ASSERT_TRUE(symLink.Details.PosixProperties.NfsFileType.HasValue());
+        EXPECT_EQ(
+            symLink.Details.PosixProperties.NfsFileType.Value(),
+            Files::Shares::Models::NfsFileType::SymLink);
         ASSERT_TRUE(symLink.LinkText.HasValue());
         EXPECT_FALSE(symLink.LinkText.Value().empty());
         ASSERT_TRUE(symLink.Details.PosixProperties.Owner.HasValue());
@@ -1554,6 +1566,10 @@ namespace Azure { namespace Storage { namespace Test {
         EXPECT_FALSE(blockDevice.Details.SmbProperties.FileId.empty());
         ASSERT_TRUE(blockDevice.Details.PosixProperties.LinkCount.HasValue());
         EXPECT_GT(blockDevice.Details.PosixProperties.LinkCount.Value(), 0);
+        ASSERT_TRUE(blockDevice.Details.PosixProperties.NfsFileType.HasValue());
+        EXPECT_EQ(
+            blockDevice.Details.PosixProperties.NfsFileType.Value(),
+            Files::Shares::Models::NfsFileType::BlockDevice);
         EXPECT_GE(blockDevice.DeviceMajor, 0);
         EXPECT_GE(blockDevice.DeviceMinor, 0);
         ASSERT_TRUE(blockDevice.Details.PosixProperties.Owner.HasValue());
@@ -1572,6 +1588,10 @@ namespace Azure { namespace Storage { namespace Test {
         EXPECT_FALSE(charDevice.Details.SmbProperties.FileId.empty());
         ASSERT_TRUE(charDevice.Details.PosixProperties.LinkCount.HasValue());
         EXPECT_GT(charDevice.Details.PosixProperties.LinkCount.Value(), 0);
+        ASSERT_TRUE(charDevice.Details.PosixProperties.NfsFileType.HasValue());
+        EXPECT_EQ(
+            charDevice.Details.PosixProperties.NfsFileType.Value(),
+            Files::Shares::Models::NfsFileType::CharacterDevice);
         EXPECT_GE(charDevice.DeviceMajor, 0);
         EXPECT_GE(charDevice.DeviceMinor, 0);
         ASSERT_TRUE(charDevice.Details.PosixProperties.Owner.HasValue());
@@ -1589,6 +1609,10 @@ namespace Azure { namespace Storage { namespace Test {
         EXPECT_FALSE(fifo.Details.SmbProperties.FileId.empty());
         ASSERT_TRUE(fifo.Details.PosixProperties.LinkCount.HasValue());
         EXPECT_GT(fifo.Details.PosixProperties.LinkCount.Value(), 0);
+        ASSERT_TRUE(fifo.Details.PosixProperties.NfsFileType.HasValue());
+        EXPECT_EQ(
+            fifo.Details.PosixProperties.NfsFileType.Value(),
+            Files::Shares::Models::NfsFileType::Fifo);
         ASSERT_TRUE(fifo.Details.PosixProperties.Owner.HasValue());
         EXPECT_FALSE(fifo.Details.PosixProperties.Owner.Value().empty());
         ASSERT_TRUE(fifo.Details.PosixProperties.Group.HasValue());
@@ -1604,6 +1628,10 @@ namespace Azure { namespace Storage { namespace Test {
         EXPECT_FALSE(socket.Details.SmbProperties.FileId.empty());
         ASSERT_TRUE(socket.Details.PosixProperties.LinkCount.HasValue());
         EXPECT_GT(socket.Details.PosixProperties.LinkCount.Value(), 0);
+        ASSERT_TRUE(socket.Details.PosixProperties.NfsFileType.HasValue());
+        EXPECT_EQ(
+            socket.Details.PosixProperties.NfsFileType.Value(),
+            Files::Shares::Models::NfsFileType::Socket);
         ASSERT_TRUE(socket.Details.PosixProperties.Owner.HasValue());
         EXPECT_FALSE(socket.Details.PosixProperties.Owner.Value().empty());
         ASSERT_TRUE(socket.Details.PosixProperties.Group.HasValue());
