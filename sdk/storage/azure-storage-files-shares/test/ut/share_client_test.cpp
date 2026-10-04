@@ -218,6 +218,8 @@ namespace Azure { namespace Storage { namespace Test {
       EXPECT_NO_THROW(m_shareClient->SetProperties(options));
       auto result = m_shareClient->GetProperties();
       EXPECT_EQ(quota32GB, result.Value.Quota);
+      ASSERT_TRUE(result.Value.CreatedOn.HasValue());
+      EXPECT_TRUE(IsValidTime(result.Value.CreatedOn.Value()));
       options.ShareQuotaInGiB = quota64GB;
       EXPECT_NO_THROW(m_shareClient->SetProperties(options));
       result = m_shareClient->GetProperties();

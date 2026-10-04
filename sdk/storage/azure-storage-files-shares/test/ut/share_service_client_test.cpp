@@ -136,6 +136,12 @@ namespace Azure { namespace Storage { namespace Test {
         for (const auto& share : page.Shares)
         {
           result.insert(share.Name);
+          if (shareSet1.find(share.Name) != shareSet1.end()
+              || shareSet2.find(share.Name) != shareSet2.end())
+          {
+            ASSERT_TRUE(share.Details.CreatedOn.HasValue());
+            EXPECT_TRUE(IsValidTime(share.Details.CreatedOn.Value()));
+          }
         }
       }
       for (const auto& name : shareSet1)
