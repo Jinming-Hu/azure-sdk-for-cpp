@@ -829,6 +829,54 @@ namespace Azure { namespace Storage { namespace Test {
         && !properties.EnableSnapshotVirtualDirectoryAccess.Value());
   }
 
+  TEST_F(FileShareClientTest, ChangeFeed)
+  {
+    auto shareClient = GetShareClientForTest(LowercaseRandomString());
+
+    Files::Shares::CreateShareOptions createOptions;
+    createOptions.EnableChangeFeed = true;
+    createOptions.ChangeFeedRetentionInDays = 3;
+    shareClient.Create(createOptions);
+
+    auto properties = shareClient.GetProperties().Value;
+    ASSERT_TRUE(properties.IsChangeFeedEnabled.HasValue());
+    EXPECT_TRUE(properties.IsChangeFeedEnabled.Value());
+    ASSERT_TRUE(properties.ChangeFeedRetentionInDays.HasValue());
+    EXPECT_EQ(3, properties.ChangeFeedRetentionInDays.Value());
+    ASSERT_TRUE(properties.ChangeFeedBlobContainerName.HasValue());
+    EXPECT_EQ(0U, properties.ChangeFeedBlobContainerName.Value().find("$fileschangefeed-"));
+
+    Files::Shares::SetSharePropertiesOptions setPropertiesOptions;
+    setPropertiesOptions.EnableChangeFeed = true;
+    setPropertiesOptions.ChangeFeedRetentionInDays = 5;
+    shareClient.SetProperties(setPropertiesOptions);
+
+    properties = shareClient.GetProperties().Value;
+    ASSERT_TRUE(properties.IsChangeFeedEnabled.HasValue());
+    EXPECT_TRUE(properties.IsChangeFeedEnabled.Value());
+    ASSERT_TRUE(properties.ChangeFeedRetentionInDays.HasValue());
+    EXPECT_EQ(5, properties.ChangeFeedRetentionInDays.Value());
+    EXPECT_TRUE(properties.ChangeFeedBlobContainerName.HasValue());
+
+    setPropertiesOptions.EnableChangeFeed.Reset();
+    setPropertiesOptions.ChangeFeedRetentionInDays = 30;
+    shareClient.SetProperties(setPropertiesOptions);
+
+    properties = shareClient.GetProperties().Value;
+    ASSERT_TRUE(properties.IsChangeFeedEnabled.HasValue());
+    EXPECT_TRUE(properties.IsChangeFeedEnabled.Value());
+    ASSERT_TRUE(properties.ChangeFeedRetentionInDays.HasValue());
+    EXPECT_EQ(30, properties.ChangeFeedRetentionInDays.Value());
+
+    setPropertiesOptions.EnableChangeFeed = false;
+    setPropertiesOptions.ChangeFeedRetentionInDays.Reset();
+    shareClient.SetProperties(setPropertiesOptions);
+
+    properties = shareClient.GetProperties().Value;
+    ASSERT_TRUE(properties.IsChangeFeedEnabled.HasValue());
+    EXPECT_FALSE(properties.IsChangeFeedEnabled.Value());
+  }
+
   TEST_F(FileShareClientTest, FilePermissionFormat)
   {
     auto sddlPermission
