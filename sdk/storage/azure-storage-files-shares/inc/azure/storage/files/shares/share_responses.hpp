@@ -385,21 +385,13 @@ namespace Azure { namespace Storage { namespace Files { namespace Shares {
        */
       ETag Etag;
       /**
-       * NFS only. The owner of the directory.
-       */
-      std::string Owner;
-      /**
-       * NFS only. The owning group of the directory.
-       */
-      std::string Group;
-      /**
-       * NFS only. The mode of the directory.
-       */
-      Nullable<NfsFileMode> FileMode;
-      /**
        * The SMB related properties for the directory.
        */
       FileSmbProperties SmbProperties;
+      /**
+       * The NFS related properties for the directory.
+       */
+      FilePosixProperties PosixProperties;
     };
 
     /**
@@ -424,21 +416,13 @@ namespace Azure { namespace Storage { namespace Files { namespace Shares {
        */
       ETag Etag;
       /**
-       * NFS only. The owner of the file.
-       */
-      std::string Owner;
-      /**
-       * NFS only. The owning group of the file.
-       */
-      std::string Group;
-      /**
-       * NFS only. The mode of the file.
-       */
-      Nullable<NfsFileMode> FileMode;
-      /**
        * The SMB related properties for the file.
        */
       FileSmbProperties SmbProperties;
+      /**
+       * The NFS related properties for the file.
+       */
+      FilePosixProperties PosixProperties;
     };
 
     /**

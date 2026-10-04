@@ -25,11 +25,11 @@ namespace Azure { namespace Storage { namespace Files { namespace Shares {
       result.LastAccessedOn = std::move(details.LastAccessedOn);
       result.LastModified = std::move(details.LastModified);
       result.Etag = std::move(details.Etag);
-      result.Owner = std::move(details.Owner);
-      result.Group = std::move(details.Group);
+      result.PosixProperties.Owner = std::move(details.Owner);
+      result.PosixProperties.Group = std::move(details.Group);
       if (!details.FileMode.empty())
       {
-        result.FileMode = Models::NfsFileMode::ParseOctalFileMode(details.FileMode);
+        result.PosixProperties.FileMode = Models::NfsFileMode::ParseOctalFileMode(details.FileMode);
       }
       result.SmbProperties = std::move(details.SmbProperties);
       return result;
@@ -42,11 +42,11 @@ namespace Azure { namespace Storage { namespace Files { namespace Shares {
       result.LastAccessedOn = std::move(details.LastAccessedOn);
       result.LastModified = std::move(details.LastModified);
       result.Etag = std::move(details.Etag);
-      result.Owner = std::move(details.Owner);
-      result.Group = std::move(details.Group);
+      result.PosixProperties.Owner = std::move(details.Owner);
+      result.PosixProperties.Group = std::move(details.Group);
       if (!details.FileMode.empty())
       {
-        result.FileMode = Models::NfsFileMode::ParseOctalFileMode(details.FileMode);
+        result.PosixProperties.FileMode = Models::NfsFileMode::ParseOctalFileMode(details.FileMode);
       }
       result.SmbProperties = std::move(details.SmbProperties);
       return result;

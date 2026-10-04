@@ -1507,10 +1507,12 @@ namespace Azure { namespace Storage { namespace Test {
         EXPECT_FALSE(directory.Name.empty());
         ASSERT_TRUE(directory.LinkCount.HasValue());
         EXPECT_GT(directory.LinkCount.Value(), 0);
-        EXPECT_FALSE(directory.Details.Owner.empty());
-        EXPECT_FALSE(directory.Details.Group.empty());
-        ASSERT_TRUE(directory.Details.FileMode.HasValue());
-        EXPECT_FALSE(directory.Details.FileMode.Value().ToOctalFileMode().empty());
+        ASSERT_TRUE(directory.Details.PosixProperties.Owner.HasValue());
+        EXPECT_FALSE(directory.Details.PosixProperties.Owner.Value().empty());
+        ASSERT_TRUE(directory.Details.PosixProperties.Group.HasValue());
+        EXPECT_FALSE(directory.Details.PosixProperties.Group.Value().empty());
+        ASSERT_TRUE(directory.Details.PosixProperties.FileMode.HasValue());
+        EXPECT_FALSE(directory.Details.PosixProperties.FileMode.Value().ToOctalFileMode().empty());
         EXPECT_NE(directory.Details.LastModified, Azure::DateTime());
         EXPECT_FALSE(directory.Details.Etag.ToString().empty());
       }
@@ -1520,10 +1522,12 @@ namespace Azure { namespace Storage { namespace Test {
         ASSERT_TRUE(file.LinkCount.HasValue());
         EXPECT_GT(file.LinkCount.Value(), 0);
         EXPECT_GE(file.Details.FileSize, 0);
-        EXPECT_FALSE(file.Details.Owner.empty());
-        EXPECT_FALSE(file.Details.Group.empty());
-        ASSERT_TRUE(file.Details.FileMode.HasValue());
-        EXPECT_FALSE(file.Details.FileMode.Value().ToOctalFileMode().empty());
+        ASSERT_TRUE(file.Details.PosixProperties.Owner.HasValue());
+        EXPECT_FALSE(file.Details.PosixProperties.Owner.Value().empty());
+        ASSERT_TRUE(file.Details.PosixProperties.Group.HasValue());
+        EXPECT_FALSE(file.Details.PosixProperties.Group.Value().empty());
+        ASSERT_TRUE(file.Details.PosixProperties.FileMode.HasValue());
+        EXPECT_FALSE(file.Details.PosixProperties.FileMode.Value().ToOctalFileMode().empty());
         EXPECT_NE(file.Details.LastModified, Azure::DateTime());
         EXPECT_FALSE(file.Details.Etag.ToString().empty());
       }
@@ -1535,10 +1539,12 @@ namespace Azure { namespace Storage { namespace Test {
         EXPECT_GT(symLink.LinkCount.Value(), 0);
         ASSERT_TRUE(symLink.LinkText.HasValue());
         EXPECT_FALSE(symLink.LinkText.Value().empty());
-        EXPECT_FALSE(symLink.Details.Owner.empty());
-        EXPECT_FALSE(symLink.Details.Group.empty());
-        ASSERT_TRUE(symLink.Details.FileMode.HasValue());
-        EXPECT_FALSE(symLink.Details.FileMode.Value().ToOctalFileMode().empty());
+        ASSERT_TRUE(symLink.Details.PosixProperties.Owner.HasValue());
+        EXPECT_FALSE(symLink.Details.PosixProperties.Owner.Value().empty());
+        ASSERT_TRUE(symLink.Details.PosixProperties.Group.HasValue());
+        EXPECT_FALSE(symLink.Details.PosixProperties.Group.Value().empty());
+        ASSERT_TRUE(symLink.Details.PosixProperties.FileMode.HasValue());
+        EXPECT_FALSE(symLink.Details.PosixProperties.FileMode.Value().ToOctalFileMode().empty());
         EXPECT_NE(symLink.Details.LastModified, Azure::DateTime());
         EXPECT_FALSE(symLink.Details.Etag.ToString().empty());
       }
@@ -1550,10 +1556,13 @@ namespace Azure { namespace Storage { namespace Test {
         EXPECT_GT(blockDevice.LinkCount.Value(), 0);
         EXPECT_GE(blockDevice.DeviceMajor, 0);
         EXPECT_GE(blockDevice.DeviceMinor, 0);
-        EXPECT_FALSE(blockDevice.Details.Owner.empty());
-        EXPECT_FALSE(blockDevice.Details.Group.empty());
-        ASSERT_TRUE(blockDevice.Details.FileMode.HasValue());
-        EXPECT_FALSE(blockDevice.Details.FileMode.Value().ToOctalFileMode().empty());
+        ASSERT_TRUE(blockDevice.Details.PosixProperties.Owner.HasValue());
+        EXPECT_FALSE(blockDevice.Details.PosixProperties.Owner.Value().empty());
+        ASSERT_TRUE(blockDevice.Details.PosixProperties.Group.HasValue());
+        EXPECT_FALSE(blockDevice.Details.PosixProperties.Group.Value().empty());
+        ASSERT_TRUE(blockDevice.Details.PosixProperties.FileMode.HasValue());
+        EXPECT_FALSE(
+            blockDevice.Details.PosixProperties.FileMode.Value().ToOctalFileMode().empty());
         EXPECT_NE(blockDevice.Details.LastModified, Azure::DateTime());
         EXPECT_FALSE(blockDevice.Details.Etag.ToString().empty());
       }
@@ -1565,10 +1574,12 @@ namespace Azure { namespace Storage { namespace Test {
         EXPECT_GT(charDevice.LinkCount.Value(), 0);
         EXPECT_GE(charDevice.DeviceMajor, 0);
         EXPECT_GE(charDevice.DeviceMinor, 0);
-        EXPECT_FALSE(charDevice.Details.Owner.empty());
-        EXPECT_FALSE(charDevice.Details.Group.empty());
-        ASSERT_TRUE(charDevice.Details.FileMode.HasValue());
-        EXPECT_FALSE(charDevice.Details.FileMode.Value().ToOctalFileMode().empty());
+        ASSERT_TRUE(charDevice.Details.PosixProperties.Owner.HasValue());
+        EXPECT_FALSE(charDevice.Details.PosixProperties.Owner.Value().empty());
+        ASSERT_TRUE(charDevice.Details.PosixProperties.Group.HasValue());
+        EXPECT_FALSE(charDevice.Details.PosixProperties.Group.Value().empty());
+        ASSERT_TRUE(charDevice.Details.PosixProperties.FileMode.HasValue());
+        EXPECT_FALSE(charDevice.Details.PosixProperties.FileMode.Value().ToOctalFileMode().empty());
         EXPECT_NE(charDevice.Details.LastModified, Azure::DateTime());
         EXPECT_FALSE(charDevice.Details.Etag.ToString().empty());
       }
@@ -1578,10 +1589,12 @@ namespace Azure { namespace Storage { namespace Test {
         EXPECT_FALSE(fifo.Details.SmbProperties.FileId.empty());
         ASSERT_TRUE(fifo.LinkCount.HasValue());
         EXPECT_GT(fifo.LinkCount.Value(), 0);
-        EXPECT_FALSE(fifo.Details.Owner.empty());
-        EXPECT_FALSE(fifo.Details.Group.empty());
-        ASSERT_TRUE(fifo.Details.FileMode.HasValue());
-        EXPECT_FALSE(fifo.Details.FileMode.Value().ToOctalFileMode().empty());
+        ASSERT_TRUE(fifo.Details.PosixProperties.Owner.HasValue());
+        EXPECT_FALSE(fifo.Details.PosixProperties.Owner.Value().empty());
+        ASSERT_TRUE(fifo.Details.PosixProperties.Group.HasValue());
+        EXPECT_FALSE(fifo.Details.PosixProperties.Group.Value().empty());
+        ASSERT_TRUE(fifo.Details.PosixProperties.FileMode.HasValue());
+        EXPECT_FALSE(fifo.Details.PosixProperties.FileMode.Value().ToOctalFileMode().empty());
         EXPECT_NE(fifo.Details.LastModified, Azure::DateTime());
         EXPECT_FALSE(fifo.Details.Etag.ToString().empty());
       }
@@ -1591,10 +1604,12 @@ namespace Azure { namespace Storage { namespace Test {
         EXPECT_FALSE(socket.Details.SmbProperties.FileId.empty());
         ASSERT_TRUE(socket.LinkCount.HasValue());
         EXPECT_GT(socket.LinkCount.Value(), 0);
-        EXPECT_FALSE(socket.Details.Owner.empty());
-        EXPECT_FALSE(socket.Details.Group.empty());
-        ASSERT_TRUE(socket.Details.FileMode.HasValue());
-        EXPECT_FALSE(socket.Details.FileMode.Value().ToOctalFileMode().empty());
+        ASSERT_TRUE(socket.Details.PosixProperties.Owner.HasValue());
+        EXPECT_FALSE(socket.Details.PosixProperties.Owner.Value().empty());
+        ASSERT_TRUE(socket.Details.PosixProperties.Group.HasValue());
+        EXPECT_FALSE(socket.Details.PosixProperties.Group.Value().empty());
+        ASSERT_TRUE(socket.Details.PosixProperties.FileMode.HasValue());
+        EXPECT_FALSE(socket.Details.PosixProperties.FileMode.Value().ToOctalFileMode().empty());
         EXPECT_NE(socket.Details.LastModified, Azure::DateTime());
         EXPECT_FALSE(socket.Details.Etag.ToString().empty());
       }
