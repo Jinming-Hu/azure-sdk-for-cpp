@@ -1476,8 +1476,6 @@ namespace Azure { namespace Storage { namespace Test {
     options.IncludeExtendedInfo = true;
     options.Include = Files::Shares::Models::ListFilesIncludeFlags::Timestamps
         | Files::Shares::Models::ListFilesIncludeFlags::ETag
-        | Files::Shares::Models::ListFilesIncludeFlags::Attributes
-        | Files::Shares::Models::ListFilesIncludeFlags::PermissionKey
         | Files::Shares::Models::ListFilesIncludeFlags::Permissions
         | Files::Shares::Models::ListFilesIncludeFlags::LinkCount
         | Files::Shares::Models::ListFilesIncludeFlags::NfsAttributes;
