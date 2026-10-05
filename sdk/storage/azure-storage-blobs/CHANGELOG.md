@@ -4,6 +4,13 @@
 
 ### Features Added
 
+- Added `BlobClient::GetLayout` and related options and response types for retrieving locality
+  endpoints, byte ranges, and blob properties.
+- Added `DownloadBlobOptions::LayoutEndpoint` for one-shot download routing and
+  `DownloadBlobToOptions::LayoutAwareRouting` (`Auto`, `Disabled`, `Enabled`; default `Auto`) for
+  managed downloads.
+- Added `Models::DownloadHint` and `Models::DownloadBlobDetails::DownloadHint`.
+
 ### Breaking Changes
 
 ### Bugs Fixed
