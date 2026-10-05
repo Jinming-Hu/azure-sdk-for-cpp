@@ -51,7 +51,10 @@ namespace Azure { namespace Storage { namespace Blobs {
     Disabled,
 
     /**
-     * @brief Enables session authentication for eligible requests.
+     * @brief Prefers session authentication for eligible requests.
+     *
+     * @note The client can fall back to bearer authentication while acquiring a session, when
+     * session creation is temporarily unavailable, or when the service rejects a session.
      */
     Enabled,
   };
