@@ -263,22 +263,35 @@ namespace Azure { namespace Storage { namespace Blobs { namespace _detail {
       const auto statusCode = static_cast<int>(e.StatusCode);
       const bool softFailure = statusCode >= 500 || statusCode == 403
           || (statusCode == 400 && e.ErrorCode == "FeatureNotEnabled");
-      if (!softFailure)
-      {
-        throw;
-      }
       now = Azure::DateTime::clock::now();
       std::lock_guard<std::mutex> lock(entry->Mutex);
-      const auto cooldownUntil = now + SessionFailureCooldown;
-      if (entry->CooldownUntil < cooldownUntil)
+      if (softFailure)
       {
-        entry->CooldownUntil = cooldownUntil;
+        const auto cooldownUntil = now + SessionFailureCooldown;
+        if (entry->CooldownUntil < cooldownUntil)
+        {
+          entry->CooldownUntil = cooldownUntil;
+        }
       }
       if (entry->Current.HasValue() && now < entry->Current.Value().ExpiresOn)
       {
         return entry->Current;
       }
+      if (!softFailure)
+      {
+        throw;
+      }
       return {};
+    }
+    catch (const std::exception&)
+    {
+      now = Azure::DateTime::clock::now();
+      std::lock_guard<std::mutex> lock(entry->Mutex);
+      if (entry->Current.HasValue() && now < entry->Current.Value().ExpiresOn)
+      {
+        return entry->Current;
+      }
+      throw;
     }
   }
 
