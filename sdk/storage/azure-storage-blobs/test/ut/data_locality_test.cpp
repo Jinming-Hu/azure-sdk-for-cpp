@@ -291,6 +291,8 @@ namespace Azure { namespace Storage { namespace Test {
          30,
          {MakeLayoutRange(0, 5, "A"), MakeLayoutRange(20, 10, "B")},
          "B"},
+        {"RequestEndAtMax", maxOffset - 1, 2, {MakeLayoutRange(maxOffset - 9, 10, "A")}, "A"},
+        {"SingleByteAtMax", maxOffset, 1, {MakeLayoutRange(maxOffset, 1, "A")}, "A"},
         {"RequestEndOverflow", maxOffset - 4, 10, {MakeLayoutRange(maxOffset - 9, 10, "A")}, "A"},
     };
 

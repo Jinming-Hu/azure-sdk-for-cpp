@@ -23,7 +23,7 @@ namespace Azure { namespace Storage { namespace Blobs { namespace _detail {
 
     const int64_t requestEnd = length - 1 > (std::numeric_limits<int64_t>::max)() - offset
         ? (std::numeric_limits<int64_t>::max)()
-        : offset + length - 1;
+        : offset + (length - 1);
     auto range = std::lower_bound(
         layout.Ranges.begin(),
         layout.Ranges.end(),
@@ -35,7 +35,7 @@ namespace Azure { namespace Storage { namespace Blobs { namespace _detail {
     std::unordered_map<std::string, uint64_t> endpointOverlaps;
     for (; range != layout.Ranges.end() && range->Range.Offset <= requestEnd; ++range)
     {
-      const int64_t rangeEnd = range->Range.Offset + range->Range.Length.Value() - 1;
+      const int64_t rangeEnd = range->Range.Offset + (range->Range.Length.Value() - 1);
       const int64_t overlapStart = (std::max)(offset, range->Range.Offset);
       const int64_t overlapEnd = (std::min)(requestEnd, rangeEnd);
       if (overlapStart > overlapEnd)
