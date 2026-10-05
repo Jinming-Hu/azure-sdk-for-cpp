@@ -270,6 +270,14 @@ namespace Azure { namespace Storage { namespace Test {
     {
       options.Transport.Transport = std::make_shared<SessionTestTransport>(state);
     }
+
+    void EnableSessions(
+        Blobs::BlobClientOptions& options,
+        const std::shared_ptr<SessionTestState>& state)
+    {
+      AddSessionTestTransport(options, state);
+      options.Session.Mode = Blobs::SessionMode::Enabled;
+    }
   } // namespace
 
   TEST(SessionAuthenticationTest, SignsEligibleDownload)
@@ -277,7 +285,7 @@ namespace Azure { namespace Storage { namespace Test {
     auto credential = std::make_shared<SessionTestCredential>();
     auto state = std::make_shared<SessionTestState>();
     Blobs::BlobClientOptions options;
-    AddSessionTestTransport(options, state);
+    EnableSessions(options, state);
     options.Session.AccountName = "account";
 
     Blobs::BlobClient client(
@@ -296,7 +304,7 @@ namespace Azure { namespace Storage { namespace Test {
     auto credential = std::make_shared<SessionTestCredential>();
     auto state = std::make_shared<SessionTestState>();
     Blobs::BlobClientOptions options;
-    AddSessionTestTransport(options, state);
+    EnableSessions(options, state);
     options.PerRetryPolicies.emplace_back(std::make_unique<SessionRequestMutationPolicy>());
     options.Session.AccountName = "account";
 
@@ -315,7 +323,7 @@ namespace Azure { namespace Storage { namespace Test {
     auto state = std::make_shared<SessionTestState>();
     state->RejectFirstSessionRequest = true;
     Blobs::BlobClientOptions options;
-    AddSessionTestTransport(options, state);
+    EnableSessions(options, state);
     options.Session.AccountName = "account";
 
     Blobs::BlobClient client(
@@ -338,7 +346,7 @@ namespace Azure { namespace Storage { namespace Test {
     options.Retry.RetryDelay = std::chrono::milliseconds(0);
     options.Retry.MaxRetryDelay = std::chrono::milliseconds(0);
     options.SecondaryHostForRetryReads = "account-secondary.blob.core.windows.net";
-    AddSessionTestTransport(options, state);
+    EnableSessions(options, state);
     options.Session.AccountName = "account";
 
     Blobs::BlobClient client(
@@ -364,7 +372,7 @@ namespace Azure { namespace Storage { namespace Test {
     auto state = std::make_shared<SessionTestState>();
     Blobs::BlobClientOptions options;
     options.PerOperationPolicies.emplace_back(std::make_unique<DataLocalityTestPolicy>());
-    AddSessionTestTransport(options, state);
+    EnableSessions(options, state);
     options.Session.AccountName = "account";
 
     Blobs::BlobClient client(
@@ -387,7 +395,7 @@ namespace Azure { namespace Storage { namespace Test {
     auto credential = std::make_shared<SessionTestCredential>();
     auto state = std::make_shared<SessionTestState>();
     Blobs::BlobClientOptions providerOptions;
-    AddSessionTestTransport(providerOptions, state);
+    EnableSessions(providerOptions, state);
     providerOptions.Session.AccountName = "account";
     auto provider = std::make_shared<Blobs::SessionProvider>(
         "https://account.blob.core.windows.net", credential, providerOptions);
@@ -416,7 +424,7 @@ namespace Azure { namespace Storage { namespace Test {
     auto credential = std::make_shared<SessionTestCredential>();
     auto state = std::make_shared<SessionTestState>();
     Blobs::BlobClientOptions providerOptions;
-    AddSessionTestTransport(providerOptions, state);
+    EnableSessions(providerOptions, state);
     providerOptions.Session.AccountName = "account";
     auto provider = std::make_shared<Blobs::SessionProvider>(
         "https://account.blob.core.windows.net", credential, providerOptions);
@@ -443,7 +451,7 @@ namespace Azure { namespace Storage { namespace Test {
     auto credential = std::make_shared<SessionTestCredential>();
     auto state = std::make_shared<SessionTestState>();
     Blobs::BlobClientOptions options;
-    AddSessionTestTransport(options, state);
+    EnableSessions(options, state);
     options.Session.AccountName = "account";
     options.Session.Provider = std::make_shared<Blobs::SessionProvider>(
         "https://storage.contoso.com", credential, options);
@@ -462,7 +470,7 @@ namespace Azure { namespace Storage { namespace Test {
     auto credential = std::make_shared<SessionTestCredential>();
     auto state = std::make_shared<SessionTestState>();
     Blobs::BlobClientOptions options;
-    AddSessionTestTransport(options, state);
+    EnableSessions(options, state);
     options.Session.AccountName = "account";
     options.Session.Provider = std::make_shared<Blobs::SessionProvider>(
         "https://localhost/account", credential, options);
@@ -480,6 +488,7 @@ namespace Azure { namespace Storage { namespace Test {
   {
     auto credential = std::make_shared<SessionTestCredential>();
     Blobs::BlobClientOptions options;
+    options.Session.Mode = Blobs::SessionMode::Enabled;
     options.Session.AccountName = "account";
 
     EXPECT_THROW(
@@ -487,14 +496,15 @@ namespace Azure { namespace Storage { namespace Test {
         std::invalid_argument);
   }
 
-  TEST(SessionAuthenticationTest, AutoModeUsesBearerForCustomEndpoint)
+  TEST(SessionAuthenticationTest, AutoModeUsesBearer)
   {
     auto credential = std::make_shared<SessionTestCredential>();
     auto state = std::make_shared<SessionTestState>();
     Blobs::BlobClientOptions options;
     AddSessionTestTransport(options, state);
 
-    Blobs::BlobClient client("https://storage.contoso.com/container/blob", credential, options);
+    Blobs::BlobClient client(
+        "https://account.blob.core.windows.net/container/blob", credential, options);
     EXPECT_NO_THROW(client.Download());
 
     EXPECT_TRUE(state->CreateSessionContainers.empty());
@@ -521,7 +531,7 @@ namespace Azure { namespace Storage { namespace Test {
     state->RejectCreateSession = true;
     Blobs::BlobClientOptions options;
     options.Retry.MaxRetries = 0;
-    AddSessionTestTransport(options, state);
+    EnableSessions(options, state);
     options.Session.AccountName = "account";
 
     Blobs::BlobClient client(
@@ -539,7 +549,7 @@ namespace Azure { namespace Storage { namespace Test {
     state->RejectCreateSessionWithNotFound = true;
     Blobs::BlobClientOptions options;
     options.Retry.MaxRetries = 0;
-    AddSessionTestTransport(options, state);
+    EnableSessions(options, state);
 
     Blobs::BlobClient client(
         "https://account.blob.core.windows.net/missing-container/blob", credential, options);
@@ -556,7 +566,7 @@ namespace Azure { namespace Storage { namespace Test {
     state->RejectDownloadWithNotFound = true;
     Blobs::BlobClientOptions options;
     options.Retry.MaxRetries = 0;
-    AddSessionTestTransport(options, state);
+    EnableSessions(options, state);
 
     Blobs::BlobClient client(
         "https://account.blob.core.windows.net/container/missing-blob", credential, options);
@@ -595,6 +605,7 @@ namespace Azure { namespace Storage { namespace Test {
 
     auto credential = std::make_shared<CountingTokenCredential>(GetTestCredential());
     auto options = InitStorageClientOptions<Blobs::BlobClientOptions>();
+    options.Session.Mode = Blobs::SessionMode::Enabled;
     auto sessionRequestCount = std::make_shared<std::atomic<int>>(0);
     options.PerRetryPolicies.emplace_back(
         std::make_unique<SessionRequestCountingPolicy>(sessionRequestCount));
@@ -624,6 +635,7 @@ namespace Azure { namespace Storage { namespace Test {
 
     auto credential = std::make_shared<CountingTokenCredential>(GetTestCredential());
     auto options = InitStorageClientOptions<Blobs::BlobClientOptions>();
+    options.Session.Mode = Blobs::SessionMode::Enabled;
     auto sessionRequestCount = std::make_shared<std::atomic<int>>(0);
     options.PerRetryPolicies.emplace_back(
         std::make_unique<SessionRequestCountingPolicy>(sessionRequestCount));

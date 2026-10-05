@@ -41,7 +41,7 @@ namespace Azure { namespace Storage { namespace Blobs {
     /**
      * @brief Lets the SDK determine when to use sessions.
      *
-     * @note Currently behaves the same as #Enabled.
+     * @note Currently behaves the same as #Disabled.
      */
     Auto,
 
@@ -64,8 +64,7 @@ namespace Azure { namespace Storage { namespace Blobs {
     /**
      * @brief The session authentication mode.
      *
-     * In Auto mode, clients use bearer authentication when session configuration cannot be
-     * inferred from the endpoint.
+     * In Auto mode, clients currently use bearer authentication.
      */
     SessionMode Mode = SessionMode::Auto;
 

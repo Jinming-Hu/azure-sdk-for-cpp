@@ -123,7 +123,7 @@ namespace Azure { namespace Storage { namespace Blobs { namespace _detail {
       return policies;
     };
 
-    if (options.Session.Mode == SessionMode::Disabled)
+    if (options.Session.Mode != SessionMode::Enabled)
     {
       return createBearerPolicy();
     }
@@ -135,10 +135,6 @@ namespace Azure { namespace Storage { namespace Blobs { namespace _detail {
       auto urlParts = Azure::Storage::_internal::ParseStorageUrl(Azure::Core::Url(clientUrl));
       if (!urlParts.HasValue())
       {
-        if (options.Session.Mode == SessionMode::Auto && !provider && accountName.empty())
-        {
-          return createBearerPolicy();
-        }
         throw std::invalid_argument(
             "SessionOptions.AccountName and the Blob service URL could not be determined from the "
             "client URL. Specify both SessionOptions.AccountName and SessionOptions.Provider for "
