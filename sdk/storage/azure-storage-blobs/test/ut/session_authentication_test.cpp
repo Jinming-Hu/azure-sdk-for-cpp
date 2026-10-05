@@ -234,35 +234,20 @@ namespace Azure { namespace Storage { namespace Test {
       std::shared_ptr<std::atomic<int>> m_downloadCount;
     };
 
-    class SessionRequestCountingPolicy final : public Azure::Core::Http::Policies::HttpPolicy {
-    public:
-      explicit SessionRequestCountingPolicy(std::shared_ptr<std::atomic<int>> sessionRequestCount)
-          : m_sessionRequestCount(std::move(sessionRequestCount))
-      {
-      }
-
-      std::unique_ptr<HttpPolicy> Clone() const override
-      {
-        return std::make_unique<SessionRequestCountingPolicy>(m_sessionRequestCount);
-      }
-
-      std::unique_ptr<Azure::Core::Http::RawResponse> Send(
-          Azure::Core::Http::Request& request,
-          Azure::Core::Http::Policies::NextHttpPolicy nextPolicy,
-          Azure::Core::Context const& context) const override
-      {
-        const auto query = request.GetUrl().GetQueryParameters();
-        if (request.GetMethod() == Azure::Core::Http::HttpMethod::Post && query.count("comp") != 0
-            && query.at("comp") == "session")
-        {
-          ++*m_sessionRequestCount;
-        }
-        return nextPolicy.Send(request, context);
-      }
-
-    private:
-      std::shared_ptr<std::atomic<int>> m_sessionRequestCount;
-    };
+    std::unique_ptr<Azure::Core::Http::Policies::HttpPolicy> CreateSessionRequestCountingPolicy(
+        std::shared_ptr<std::atomic<int>> sessionRequestCount)
+    {
+      return std::make_unique<PeekHttpRequestPolicy>(
+          [sessionRequestCount
+           = std::move(sessionRequestCount)](const Azure::Core::Http::Request& request) {
+            const auto query = request.GetUrl().GetQueryParameters();
+            if (request.GetMethod() == Azure::Core::Http::HttpMethod::Post
+                && query.count("comp") != 0 && query.at("comp") == "session")
+            {
+              ++*sessionRequestCount;
+            }
+          });
+    }
 
     void AddSessionTestTransport(
         Blobs::BlobClientOptions& options,
@@ -513,6 +498,15 @@ namespace Azure { namespace Storage { namespace Test {
     EXPECT_EQ(credential->GetTokenCount, 1);
   }
 
+  TEST(SessionAuthenticationTest, AutoModeAllowsCustomEndpointConstruction)
+  {
+    auto credential = std::make_shared<SessionTestCredential>();
+    Blobs::BlobClientOptions options;
+
+    EXPECT_NO_THROW(
+        Blobs::BlobClient("https://storage.contoso.com/container/blob", credential, options));
+  }
+
   TEST(SessionAuthenticationTest, EnabledModeRejectsCustomEndpointWithoutConfiguration)
   {
     auto credential = std::make_shared<SessionTestCredential>();
@@ -594,10 +588,20 @@ namespace Azure { namespace Storage { namespace Test {
     EXPECT_EQ(credential->GetTokenCount, 1);
   }
 
+  TEST(SessionAuthenticationTest, DisabledModeAllowsCustomEndpointConstruction)
+  {
+    auto credential = std::make_shared<SessionTestCredential>();
+    Blobs::BlobClientOptions options;
+    options.Session.Mode = Blobs::SessionMode::Disabled;
+
+    EXPECT_NO_THROW(
+        Blobs::BlobClient("https://storage.contoso.com/container/blob", credential, options));
+  }
+
   class SessionAuthenticationLiveTest : public BlobContainerClientTest {
   };
 
-  TEST_F(SessionAuthenticationLiveTest, DownloadsWithDefaultSessionProvider)
+  TEST_F(SessionAuthenticationLiveTest, DownloadsWithDefaultSessionProvider_LIVEONLY_)
   {
     auto blobClient = m_blobContainerClient->GetBlockBlobClient(RandomString());
     const std::vector<uint8_t> content{'s', 'e', 's', 's', 'i', 'o', 'n'};
@@ -607,8 +611,7 @@ namespace Azure { namespace Storage { namespace Test {
     auto options = InitStorageClientOptions<Blobs::BlobClientOptions>();
     options.Session.Mode = Blobs::SessionMode::Enabled;
     auto sessionRequestCount = std::make_shared<std::atomic<int>>(0);
-    options.PerRetryPolicies.emplace_back(
-        std::make_unique<SessionRequestCountingPolicy>(sessionRequestCount));
+    options.PerRetryPolicies.emplace_back(CreateSessionRequestCountingPolicy(sessionRequestCount));
     Blobs::BlobClient sessionClient(blobClient.GetUrl(), credential, options);
 
     for (int i = 0; i < 3; ++i)
@@ -627,7 +630,7 @@ namespace Azure { namespace Storage { namespace Test {
     EXPECT_EQ(sessionRequestCount->load(), 1);
   }
 
-  TEST_F(SessionAuthenticationLiveTest, DownloadsWithExplicitSessionProvider)
+  TEST_F(SessionAuthenticationLiveTest, IndependentClientsShareExplicitSessionProvider_LIVEONLY_)
   {
     auto blobClient = m_blobContainerClient->GetBlockBlobClient(RandomString());
     const std::vector<uint8_t> content{'s', 'e', 's', 's', 'i', 'o', 'n'};
@@ -637,25 +640,23 @@ namespace Azure { namespace Storage { namespace Test {
     auto options = InitStorageClientOptions<Blobs::BlobClientOptions>();
     options.Session.Mode = Blobs::SessionMode::Enabled;
     auto sessionRequestCount = std::make_shared<std::atomic<int>>(0);
-    options.PerRetryPolicies.emplace_back(
-        std::make_unique<SessionRequestCountingPolicy>(sessionRequestCount));
+    options.PerRetryPolicies.emplace_back(CreateSessionRequestCountingPolicy(sessionRequestCount));
     options.Session.Provider = std::make_shared<Blobs::ContainerSessionProvider>(
         GetBlobServiceUrl(), credential, options);
     options.Session.AccountName = m_accountName;
-    Blobs::BlobClient sessionClient(blobClient.GetUrl(), credential, options);
+    Blobs::BlobClient firstClient(blobClient.GetUrl(), credential, options);
+    Blobs::BlobClient secondClient(blobClient.GetUrl(), credential, options);
 
-    for (int i = 0; i < 3; ++i)
-    {
-      EXPECT_NO_THROW(sessionClient.Download().Value.BodyStream->ReadToEnd());
-    }
+    EXPECT_NO_THROW(firstClient.Download().Value.BodyStream->ReadToEnd());
+    EXPECT_NO_THROW(secondClient.Download().Value.BodyStream->ReadToEnd());
     EXPECT_EQ(credential->GetTokenCount(), 1);
     EXPECT_EQ(sessionRequestCount->load(), 1);
 
     Blobs::Models::BlobHttpHeaders headers;
     headers.ContentType = "application/octet-stream";
-    EXPECT_NO_THROW(sessionClient.GetProperties());
-    EXPECT_NO_THROW(sessionClient.SetMetadata({{"key", "value"}}));
-    EXPECT_NO_THROW(sessionClient.SetHttpHeaders(headers));
+    EXPECT_NO_THROW(firstClient.GetProperties());
+    EXPECT_NO_THROW(firstClient.SetMetadata({{"key", "value"}}));
+    EXPECT_NO_THROW(firstClient.SetHttpHeaders(headers));
     EXPECT_EQ(credential->GetTokenCount(), 2);
     EXPECT_EQ(sessionRequestCount->load(), 1);
   }

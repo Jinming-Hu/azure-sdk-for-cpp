@@ -1,8 +1,11 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+#include "datalake_file_client_test.hpp"
+
 #include <azure/storage/files/datalake.hpp>
 
+#include <atomic>
 #include <list>
 #include <mutex>
 #include <vector>
@@ -26,6 +29,21 @@ namespace Azure { namespace Storage { namespace Test {
       std::list<std::vector<uint8_t>> ResponseBodies;
     };
 
+    std::unique_ptr<Azure::Core::Http::Policies::HttpPolicy> CreateSessionRequestCountingPolicy(
+        std::shared_ptr<std::atomic<int>> sessionRequestCount)
+    {
+      return std::make_unique<PeekHttpRequestPolicy>(
+          [sessionRequestCount
+           = std::move(sessionRequestCount)](const Azure::Core::Http::Request& request) {
+            const auto query = request.GetUrl().GetQueryParameters();
+            if (request.GetMethod() == Azure::Core::Http::HttpMethod::Post
+                && query.count("comp") != 0 && query.at("comp") == "session")
+            {
+              ++*sessionRequestCount;
+            }
+          });
+    }
+
     class SessionTestCredential final : public Azure::Core::Credentials::TokenCredential {
     public:
       SessionTestCredential() : TokenCredential("SessionTestCredential") {}
@@ -36,6 +54,29 @@ namespace Azure { namespace Storage { namespace Test {
       {
         return {"bearer-token", Azure::DateTime::clock::now() + std::chrono::hours(1)};
       }
+    };
+
+    class CountingTokenCredential final : public Azure::Core::Credentials::TokenCredential {
+    public:
+      explicit CountingTokenCredential(
+          std::shared_ptr<const Azure::Core::Credentials::TokenCredential> credential)
+          : TokenCredential("CountingTokenCredential"), m_credential(std::move(credential))
+      {
+      }
+
+      Azure::Core::Credentials::AccessToken GetToken(
+          const Azure::Core::Credentials::TokenRequestContext& tokenRequestContext,
+          const Azure::Core::Context& context) const override
+      {
+        ++m_getTokenCount;
+        return m_credential->GetToken(tokenRequestContext, context);
+      }
+
+      int GetTokenCount() const { return m_getTokenCount.load(); }
+
+    private:
+      std::shared_ptr<const Azure::Core::Credentials::TokenCredential> m_credential;
+      mutable std::atomic<int> m_getTokenCount{0};
     };
 
     class SessionTestTransport final : public Azure::Core::Http::HttpTransport {
@@ -177,6 +218,27 @@ namespace Azure { namespace Storage { namespace Test {
     EXPECT_EQ(state->Requests[2].Method, Azure::Core::Http::HttpMethod::Get);
     EXPECT_EQ(state->Requests[2].Host, "account.blob.core.windows.net");
     EXPECT_EQ(state->Requests[2].Authorization.find("Session "), 0U);
+  }
+
+  class DataLakeSessionAuthenticationLiveTest : public DataLakeFileClientTest {
+  };
+
+  TEST_F(DataLakeSessionAuthenticationLiveTest, DownloadUsesSessionAuthentication_LIVEONLY_)
+  {
+    auto options = InitStorageClientOptions<Files::DataLake::DataLakeClientOptions>();
+    options.Session.Mode = Blobs::SessionMode::Enabled;
+    auto sessionRequestCount = std::make_shared<std::atomic<int>>(0);
+    options.PerRetryPolicies.emplace_back(CreateSessionRequestCountingPolicy(sessionRequestCount));
+    auto credential = std::make_shared<CountingTokenCredential>(GetTestCredential());
+    Files::DataLake::DataLakeFileClient client(m_fileClient->GetUrl(), credential, options);
+
+    EXPECT_NO_THROW(client.Download().Value.Body->ReadToEnd());
+    EXPECT_NO_THROW(client.Download().Value.Body->ReadToEnd());
+    EXPECT_EQ(sessionRequestCount->load(), 1);
+    EXPECT_EQ(credential->GetTokenCount(), 1);
+    EXPECT_NO_THROW(client.GetProperties());
+    EXPECT_EQ(sessionRequestCount->load(), 1);
+    EXPECT_EQ(credential->GetTokenCount(), 2);
   }
 
 }}} // namespace Azure::Storage::Test
