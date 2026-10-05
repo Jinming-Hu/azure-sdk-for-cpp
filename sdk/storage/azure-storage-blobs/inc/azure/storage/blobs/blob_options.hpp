@@ -26,6 +26,7 @@
 
 namespace Azure { namespace Storage { namespace Blobs {
 
+  class ContainerSessionProvider;
   class SessionProvider;
 
   namespace _detail {
@@ -360,9 +361,28 @@ namespace Azure { namespace Storage { namespace Blobs {
   };
 
   /**
-   * @brief Owns and caches persisted sessions that can be shared by multiple clients.
+   * @brief Base type for providers that own and cache persisted sessions.
+   *
+   * Session providers can be shared by multiple clients through #SessionOptions::Provider.
+   * Use #ContainerSessionProvider for TokenCredential-based session authentication.
    */
-  class AZ_STORAGE_BLOBS_DLLEXPORT SessionProvider final {
+  class AZ_STORAGE_BLOBS_DLLEXPORT SessionProvider {
+  public:
+    virtual ~SessionProvider();
+
+  private:
+    friend class ContainerSessionProvider;
+    friend class _detail::SessionAuthenticationPolicy;
+
+    SessionProvider();
+
+    std::shared_ptr<_detail::TokenCredentialSessionProvider> m_provider;
+  };
+
+  /**
+   * @brief Creates and caches container-scoped sessions using a TokenCredential.
+   */
+  class AZ_STORAGE_BLOBS_DLLEXPORT ContainerSessionProvider final : public SessionProvider {
   public:
     /**
      * @brief Creates a provider backed by a TokenCredential.
@@ -371,17 +391,12 @@ namespace Azure { namespace Storage { namespace Blobs {
      * @param credential The credential used to create sessions.
      * @param options Client options used by Create Session requests.
      */
-    SessionProvider(
+    ContainerSessionProvider(
         const std::string& serviceUrl,
         std::shared_ptr<const Azure::Core::Credentials::TokenCredential> credential,
         const BlobClientOptions& options);
 
-    ~SessionProvider();
-
-  private:
-    friend class _detail::SessionAuthenticationPolicy;
-
-    std::shared_ptr<_detail::TokenCredentialSessionProvider> m_provider;
+    ~ContainerSessionProvider() override;
   };
 
   /**

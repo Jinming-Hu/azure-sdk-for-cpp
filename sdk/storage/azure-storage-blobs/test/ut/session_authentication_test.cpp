@@ -397,7 +397,7 @@ namespace Azure { namespace Storage { namespace Test {
     Blobs::BlobClientOptions providerOptions;
     EnableSessions(providerOptions, state);
     providerOptions.Session.AccountName = "account";
-    auto provider = std::make_shared<Blobs::SessionProvider>(
+    auto provider = std::make_shared<Blobs::ContainerSessionProvider>(
         "https://account.blob.core.windows.net", credential, providerOptions);
 
     auto clientOptions = providerOptions;
@@ -426,7 +426,7 @@ namespace Azure { namespace Storage { namespace Test {
     Blobs::BlobClientOptions providerOptions;
     EnableSessions(providerOptions, state);
     providerOptions.Session.AccountName = "account";
-    auto provider = std::make_shared<Blobs::SessionProvider>(
+    auto provider = std::make_shared<Blobs::ContainerSessionProvider>(
         "https://account.blob.core.windows.net", credential, providerOptions);
 
     auto clientOptions = providerOptions;
@@ -453,7 +453,7 @@ namespace Azure { namespace Storage { namespace Test {
     Blobs::BlobClientOptions options;
     EnableSessions(options, state);
     options.Session.AccountName = "account";
-    options.Session.Provider = std::make_shared<Blobs::SessionProvider>(
+    options.Session.Provider = std::make_shared<Blobs::ContainerSessionProvider>(
         "https://storage.contoso.com", credential, options);
 
     Blobs::BlobClient client("https://storage.contoso.com/container/blob", credential, options);
@@ -472,7 +472,7 @@ namespace Azure { namespace Storage { namespace Test {
     Blobs::BlobClientOptions options;
     EnableSessions(options, state);
     options.Session.AccountName = "account";
-    options.Session.Provider = std::make_shared<Blobs::SessionProvider>(
+    options.Session.Provider = std::make_shared<Blobs::ContainerSessionProvider>(
         "https://localhost/account", credential, options);
 
     Blobs::BlobClient client("https://localhost/account/container/blob", credential, options);
@@ -639,8 +639,8 @@ namespace Azure { namespace Storage { namespace Test {
     auto sessionRequestCount = std::make_shared<std::atomic<int>>(0);
     options.PerRetryPolicies.emplace_back(
         std::make_unique<SessionRequestCountingPolicy>(sessionRequestCount));
-    options.Session.Provider
-        = std::make_shared<Blobs::SessionProvider>(GetBlobServiceUrl(), credential, options);
+    options.Session.Provider = std::make_shared<Blobs::ContainerSessionProvider>(
+        GetBlobServiceUrl(), credential, options);
     options.Session.AccountName = m_accountName;
     Blobs::BlobClient sessionClient(blobClient.GetUrl(), credential, options);
 

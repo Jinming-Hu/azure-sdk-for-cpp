@@ -148,7 +148,7 @@ namespace Azure { namespace Storage { namespace Blobs { namespace _detail {
       accountName = std::move(urlParts.Value().AccountName);
       if (!provider)
       {
-        provider = std::make_shared<Blobs::SessionProvider>(
+        provider = std::make_shared<Blobs::ContainerSessionProvider>(
             urlParts.Value().ServiceUrl, credential, options);
       }
     }
