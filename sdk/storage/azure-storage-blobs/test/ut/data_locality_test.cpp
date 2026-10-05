@@ -202,7 +202,7 @@ namespace Azure { namespace Storage { namespace Test {
     Blobs::DownloadBlobToOptions CreateDownloadOptions()
     {
       Blobs::DownloadBlobToOptions options;
-      options.EnableLayoutAwareRouting = true;
+      options.LayoutAwareRouting = Blobs::LayoutAwareRouting::Enabled;
       options.TransferOptions.InitialChunkSize = 128 * 1024;
       options.TransferOptions.ChunkSize = 64 * 1024;
       options.TransferOptions.Concurrency = 4;
@@ -473,6 +473,41 @@ namespace Azure { namespace Storage { namespace Test {
 
     std::lock_guard<std::mutex> lock(state->Mutex);
     ASSERT_GT(state->Requests.size(), 1U);
+    for (const auto& request : state->Requests)
+    {
+      EXPECT_FALSE(request.IsLayout);
+      EXPECT_EQ(request.Host, "primary.test");
+    }
+  }
+
+  TEST(DataLocalityTest, AutoEnablesLayoutAwareRouting)
+  {
+    auto state = std::make_shared<LocalityState>();
+    auto data = std::make_shared<std::string>(1024 * 1024, 'a');
+    auto client = CreateLocalityClient(state, data);
+    auto options = CreateDownloadOptions();
+    options.LayoutAwareRouting = Blobs::LayoutAwareRouting::Auto;
+
+    std::vector<uint8_t> buffer(data->size());
+    client.DownloadTo(buffer.data(), buffer.size(), options);
+
+    std::lock_guard<std::mutex> lock(state->Mutex);
+    ASSERT_GT(state->Requests.size(), 1U);
+    EXPECT_TRUE(state->Requests[1].IsLayout);
+  }
+
+  TEST(DataLocalityTest, DisabledSkipsLayoutAwareRouting)
+  {
+    auto state = std::make_shared<LocalityState>();
+    auto data = std::make_shared<std::string>(1024 * 1024, 'd');
+    auto client = CreateLocalityClient(state, data);
+    auto options = CreateDownloadOptions();
+    options.LayoutAwareRouting = Blobs::LayoutAwareRouting::Disabled;
+
+    std::vector<uint8_t> buffer(data->size());
+    client.DownloadTo(buffer.data(), buffer.size(), options);
+
+    std::lock_guard<std::mutex> lock(state->Mutex);
     for (const auto& request : state->Requests)
     {
       EXPECT_FALSE(request.IsLayout);

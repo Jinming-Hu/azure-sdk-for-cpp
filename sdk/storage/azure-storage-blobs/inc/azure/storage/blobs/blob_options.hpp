@@ -24,6 +24,27 @@
 namespace Azure { namespace Storage { namespace Blobs {
 
   /**
+   * @brief Determines whether locality-aware routing is used for managed downloads.
+   */
+  enum class LayoutAwareRouting
+  {
+    /**
+     * @brief The client library determines whether locality-aware routing is enabled.
+     */
+    Auto,
+
+    /**
+     * @brief Locality-aware routing is disabled.
+     */
+    Disabled,
+
+    /**
+     * @brief Locality-aware routing is enabled.
+     */
+    Enabled,
+  };
+
+  /**
    * @brief Audiences available for blob service
    *
    */
@@ -850,10 +871,9 @@ namespace Azure { namespace Storage { namespace Blobs {
     Azure::Nullable<TransferValidationOptions> ValidationOptions;
 
     /**
-     * @brief Private preview. Attempts to route each download request to the endpoint preferred by
-     * the blob's layout.
+     * @brief Determines whether locality-aware routing is used for the parallel range requests.
      */
-    bool EnableLayoutAwareRouting = true;
+    Blobs::LayoutAwareRouting LayoutAwareRouting = Blobs::LayoutAwareRouting::Auto;
   };
 
   /**

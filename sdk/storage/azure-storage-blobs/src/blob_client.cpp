@@ -47,6 +47,11 @@ namespace Azure { namespace Storage { namespace Blobs {
           == Models::DownloadHint::Layout.ToString();
     }
 
+    bool IsLayoutAwareRoutingEnabled(LayoutAwareRouting value)
+    {
+      return value != LayoutAwareRouting::Disabled;
+    }
+
     std::unique_ptr<_detail::DataLocalityLayoutState> CreateDataLocalityLayoutState(
         BlobClient blobClient,
         Azure::Nullable<Azure::Core::Http::HttpRange> range,
@@ -571,7 +576,7 @@ namespace Azure { namespace Storage { namespace Blobs {
     }
 
     std::unique_ptr<_detail::DataLocalityLayoutState> dataLocalityState;
-    if (remainingSize > 0 && options.EnableLayoutAwareRouting
+    if (remainingSize > 0 && IsLayoutAwareRoutingEnabled(options.LayoutAwareRouting)
         && HasDataLocalityHint(firstChunk.Value.Details))
     {
       Core::Http::HttpRange remainingRange;
@@ -718,7 +723,7 @@ namespace Azure { namespace Storage { namespace Blobs {
     const int64_t remainingSize = blobRangeSize - firstChunkLength;
 
     std::unique_ptr<_detail::DataLocalityLayoutState> dataLocalityState;
-    if (remainingSize > 0 && options.EnableLayoutAwareRouting
+    if (remainingSize > 0 && IsLayoutAwareRoutingEnabled(options.LayoutAwareRouting)
         && HasDataLocalityHint(firstChunk.Value.Details))
     {
       Core::Http::HttpRange remainingRange;
