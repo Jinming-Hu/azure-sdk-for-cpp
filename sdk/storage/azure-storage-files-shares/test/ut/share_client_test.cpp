@@ -28,6 +28,133 @@ namespace Azure { namespace Storage { namespace Files { namespace Shares { names
 
 namespace Azure { namespace Storage { namespace Test {
 
+  TEST(FileIdAddressedClientTest, ClientStateAndValidation)
+  {
+    Files::Shares::ShareClient shareClient(
+        "https://account.file.core.windows.net/share?sharesnapshot=snapshot&sig=signature");
+
+    EXPECT_THROW(shareClient.GetFileClientByFileId(""), std::invalid_argument);
+    EXPECT_THROW(shareClient.GetDirectoryClientByFileId(""), std::invalid_argument);
+    EXPECT_THROW(
+        Files::Shares::ShareFileClient("https://account.file.core.windows.net/share?fileid="),
+        std::invalid_argument);
+    EXPECT_THROW(
+        Files::Shares::ShareDirectoryClient("https://account.file.core.windows.net/share?fileid="),
+        std::invalid_argument);
+
+    auto fileClient = shareClient.GetFileClientByFileId("12345");
+    EXPECT_EQ(fileClient.GetFileId(), "12345");
+    auto fileUrl = Core::Url(fileClient.GetUrl());
+    EXPECT_EQ(fileUrl.GetQueryParameters().at("sharesnapshot"), "snapshot");
+    EXPECT_EQ(fileUrl.GetQueryParameters().at("sig"), "signature");
+    EXPECT_EQ(fileUrl.GetQueryParameters().at("fileid"), "12345");
+    auto snapshotFileClient = fileClient.WithShareSnapshot("new-snapshot");
+    EXPECT_EQ(snapshotFileClient.GetFileId(), "12345");
+    EXPECT_EQ(
+        Core::Url(snapshotFileClient.GetUrl()).GetQueryParameters().at("sharesnapshot"),
+        "new-snapshot");
+
+    auto directoryClient = shareClient.GetDirectoryClientByFileId("67890");
+    EXPECT_EQ(directoryClient.GetFileId(), "67890");
+    auto snapshotDirectoryClient = directoryClient.WithShareSnapshot("new-snapshot");
+    EXPECT_EQ(snapshotDirectoryClient.GetFileId(), "67890");
+
+    Files::Shares::ShareFileClient uppercaseFileIdClient(
+        "https://account.file.core.windows.net/share?FILEID=12345");
+    EXPECT_EQ(uppercaseFileIdClient.GetFileId(), "12345");
+
+    Files::Shares::ShareDirectoryClient uppercaseDirectoryFileIdClient(
+        "https://account.file.core.windows.net/share?FILEID=67890");
+    EXPECT_EQ(uppercaseDirectoryFileIdClient.GetFileId(), "67890");
+
+    Files::Shares::ShareFileClient pathClient("https://account.file.core.windows.net/share/path");
+    EXPECT_TRUE(pathClient.GetFileId().empty());
+    EXPECT_THROW(pathClient.GetFileLinks(), std::logic_error);
+  }
+
+  TEST(FileIdAddressedClientTest, FileUnsupportedOperations)
+  {
+    Files::Shares::ShareClient shareClient("https://account.file.core.windows.net/share");
+    auto fileClient = shareClient.GetFileClientByFileId("12345");
+    std::vector<uint8_t> content(1);
+    Core::IO::MemoryBodyStream contentStream(content);
+    Core::Http::HttpRange sourceRange;
+
+    EXPECT_THROW(fileClient.Create(1), std::logic_error);
+    EXPECT_THROW(fileClient.Delete(), std::logic_error);
+    EXPECT_THROW(fileClient.DeleteIfExists(), std::logic_error);
+    EXPECT_THROW(fileClient.Download(), std::logic_error);
+    EXPECT_THROW(fileClient.DownloadTo(content.data(), content.size()), std::logic_error);
+    EXPECT_THROW(fileClient.DownloadTo("file-that-must-not-be-created"), std::logic_error);
+    EXPECT_THROW(fileClient.UploadFrom(content.data(), content.size()), std::logic_error);
+    EXPECT_THROW(fileClient.UploadFrom("file-that-must-not-be-opened"), std::logic_error);
+    EXPECT_THROW(
+        fileClient.StartCopy("https://account.file.core.windows.net/share/source"),
+        std::logic_error);
+    EXPECT_THROW(fileClient.AbortCopy("copy-id"), std::logic_error);
+    EXPECT_THROW(
+        fileClient.SetProperties(
+            Files::Shares::Models::FileHttpHeaders(), Files::Shares::Models::FileSmbProperties()),
+        std::logic_error);
+    EXPECT_THROW(fileClient.SetMetadata(Storage::Metadata()), std::logic_error);
+    EXPECT_THROW(fileClient.UploadRange(0, contentStream), std::logic_error);
+    EXPECT_THROW(fileClient.ClearRange(0, 1), std::logic_error);
+    EXPECT_THROW(fileClient.GetRangeList(), std::logic_error);
+    EXPECT_THROW(fileClient.GetRangeListDiff("snapshot"), std::logic_error);
+    EXPECT_THROW(fileClient.GetAllRangeList(), std::logic_error);
+    EXPECT_THROW(fileClient.GetAllRangeListDiff("snapshot"), std::logic_error);
+    EXPECT_THROW(fileClient.ListHandles(), std::logic_error);
+    EXPECT_THROW(fileClient.ForceCloseHandle("handle-id"), std::logic_error);
+    EXPECT_THROW(fileClient.ForceCloseAllHandles(), std::logic_error);
+    EXPECT_THROW(
+        fileClient.UploadRangeFromUri(
+            0, "https://account.file.core.windows.net/share/source", sourceRange),
+        std::logic_error);
+    EXPECT_THROW(fileClient.CreateSymbolicLink("target"), std::logic_error);
+    EXPECT_THROW(fileClient.GetSymbolicLink(), std::logic_error);
+    EXPECT_THROW(fileClient.CreateHardLink("target"), std::logic_error);
+  }
+
+  TEST(FileIdAddressedClientTest, DirectoryUnsupportedOperations)
+  {
+    Files::Shares::ShareClient shareClient("https://account.file.core.windows.net/share");
+    auto directoryClient = shareClient.GetDirectoryClientByFileId("67890");
+
+    EXPECT_THROW(directoryClient.GetSubdirectoryClient("child"), std::logic_error);
+    EXPECT_THROW(directoryClient.GetFileClient("file"), std::logic_error);
+    EXPECT_THROW(directoryClient.Create(), std::logic_error);
+    EXPECT_THROW(directoryClient.CreateIfNotExists(), std::logic_error);
+    EXPECT_THROW(directoryClient.RenameFile("file", "destination"), std::logic_error);
+    EXPECT_THROW(directoryClient.RenameSubdirectory("directory", "destination"), std::logic_error);
+    EXPECT_THROW(directoryClient.Delete(), std::logic_error);
+    EXPECT_THROW(directoryClient.DeleteIfExists(), std::logic_error);
+    EXPECT_THROW(
+        directoryClient.SetProperties(Files::Shares::Models::FileSmbProperties()),
+        std::logic_error);
+    EXPECT_THROW(directoryClient.SetMetadata(Storage::Metadata()), std::logic_error);
+    EXPECT_THROW(directoryClient.ListFilesAndDirectories(), std::logic_error);
+    EXPECT_THROW(directoryClient.ListHandles(), std::logic_error);
+    EXPECT_THROW(directoryClient.ForceCloseHandle("handle-id"), std::logic_error);
+    EXPECT_THROW(directoryClient.ForceCloseAllHandles(), std::logic_error);
+  }
+
+  TEST(FileIdAddressedClientTest, LeaseUnsupportedOperations)
+  {
+    Files::Shares::ShareClient shareClient("https://account.file.core.windows.net/share");
+    auto fileClient = shareClient.GetFileClientByFileId("12345");
+    Files::Shares::ShareLeaseClient leaseClient(
+        fileClient, Files::Shares::ShareLeaseClient::CreateUniqueLeaseId());
+    EXPECT_THROW(
+        leaseClient.Acquire(Files::Shares::ShareLeaseClient::InfiniteLeaseDuration),
+        std::logic_error);
+    EXPECT_THROW(leaseClient.Renew(), std::logic_error);
+    EXPECT_THROW(leaseClient.Release(), std::logic_error);
+    EXPECT_THROW(
+        leaseClient.Change(Files::Shares::ShareLeaseClient::CreateUniqueLeaseId()),
+        std::logic_error);
+    EXPECT_THROW(leaseClient.Break(), std::logic_error);
+  }
+
   void FileShareClientTest::SetUp()
   {
     FileShareServiceClientTest::SetUp();

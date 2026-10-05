@@ -30,6 +30,34 @@ namespace Azure { namespace Storage { namespace Test {
     m_fileClient->Create(1024);
   }
 
+  TEST_F(FileShareFileClientTest, FileIdAddressing)
+  {
+    auto pathProperties = m_fileClient->GetProperties().Value;
+    ASSERT_FALSE(pathProperties.SmbProperties.FileId.empty());
+    ASSERT_FALSE(pathProperties.SmbProperties.ParentFileId.empty());
+
+    auto fileIdClient = m_shareClient->GetFileClientByFileId(pathProperties.SmbProperties.FileId);
+    auto fileIdProperties = fileIdClient.GetProperties().Value;
+    ASSERT_TRUE(fileIdProperties.FileName.HasValue());
+    EXPECT_EQ(fileIdProperties.FileName.Value(), m_fileName);
+    EXPECT_EQ(fileIdProperties.SmbProperties.FileId, pathProperties.SmbProperties.FileId);
+
+    auto links = fileIdClient.GetFileLinks().Value;
+    ASSERT_EQ(links.Links.size(), 1);
+    EXPECT_EQ(links.Links[0].Name, m_fileName);
+    EXPECT_EQ(links.Links[0].ParentId, pathProperties.SmbProperties.ParentFileId);
+
+    auto directoryPathProperties = m_fileShareDirectoryClient->GetProperties().Value;
+    ASSERT_FALSE(directoryPathProperties.SmbProperties.FileId.empty());
+    auto directoryIdClient
+        = m_shareClient->GetDirectoryClientByFileId(directoryPathProperties.SmbProperties.FileId);
+    auto directoryIdProperties = directoryIdClient.GetProperties().Value;
+    ASSERT_TRUE(directoryIdProperties.FileName.HasValue());
+    EXPECT_EQ(directoryIdProperties.FileName.Value(), m_directoryName);
+    EXPECT_EQ(
+        directoryIdProperties.SmbProperties.FileId, directoryPathProperties.SmbProperties.FileId);
+  }
+
   TEST_F(FileShareFileClientTest, CreateDeleteFiles)
   {
     {
