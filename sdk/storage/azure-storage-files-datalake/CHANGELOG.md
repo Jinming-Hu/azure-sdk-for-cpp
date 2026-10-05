@@ -4,6 +4,10 @@
 
 ### Features Added
 
+- Added `DataLakeFileClient::GetLayout` with resolved locality endpoints and file properties.
+- Added one-shot locality routing through `DownloadFileOptions::LayoutEndpoint` and managed
+  download routing through `DownloadFileToOptions::LayoutAwareRouting`.
+
 ### Breaking Changes
 
 ### Bugs Fixed

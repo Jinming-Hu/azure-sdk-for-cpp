@@ -129,6 +129,27 @@ fileClient.Flush(fileStream.Length());
 Response<DownloadFileResult> fileContents = fileClient.Download();
 ```
 
+### Data locality
+
+On accounts that support data locality, `GetLayout()` returns file properties and byte ranges
+with resolved locality endpoints. Layout requests use the Blob endpoint.
+
+```cpp
+for (auto page = fileClient.GetLayout(); page.HasPage(); page.MoveToNextPage())
+{
+  std::cout << "File size: " << page.Layout.Properties.FileSize << std::endl;
+  for (const auto& range : page.Layout.Ranges.Ranges)
+  {
+    std::cout << range.Range.Offset << ": " << range.Endpoint << std::endl;
+  }
+}
+```
+
+Set `DownloadFileOptions::LayoutEndpoint` to an endpoint returned by `GetLayout()` to route a
+single ranged download. Managed downloads through either `DownloadTo()` overload use
+`DownloadFileToOptions::LayoutAwareRouting`, which defaults to `LayoutAwareRouting::Auto`.
+Use `LayoutAwareRouting::Disabled` to keep managed downloads on the normal endpoint.
+
 ### Enumerating DataLake Paths
 ```cpp
 for (auto pathPage = client.ListPaths(false); pathPage.HasPage(); pathPage.MoveToNextPage())

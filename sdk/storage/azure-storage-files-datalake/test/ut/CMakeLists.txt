@@ -16,6 +16,7 @@ SetUpTestProxy("sdk/storage")
 
 add_executable (
   azure-storage-files-datalake-test
+    data_locality_test.cpp
     datalake_directory_client_test.cpp
     datalake_directory_client_test.hpp
     datalake_file_client_test.cpp
