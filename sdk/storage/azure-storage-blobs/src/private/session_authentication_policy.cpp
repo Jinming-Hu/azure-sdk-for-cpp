@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 #include "session_authentication_policy.hpp"
+
 #include "token_credential_session_provider.hpp"
 
 #include <azure/storage/common/internal/constants.hpp>
@@ -18,8 +19,7 @@ namespace Azure { namespace Storage { namespace Blobs { namespace _detail {
 
   class SessionSigningPolicy final : public Azure::Core::Http::Policies::HttpPolicy {
   public:
-    explicit SessionSigningPolicy(std::string accountName)
-        : m_accountName(std::move(accountName))
+    explicit SessionSigningPolicy(std::string accountName) : m_accountName(std::move(accountName))
     {
     }
 
@@ -62,7 +62,7 @@ namespace Azure { namespace Storage { namespace Blobs { namespace _detail {
             std::move(credential),
             std::move(tokenRequestContext),
             enableTenantDiscovery),
-          m_provider(std::move(provider->m_provider))
+          m_provider(provider->m_provider)
     {
     }
 
@@ -113,9 +113,9 @@ namespace Azure { namespace Storage { namespace Blobs { namespace _detail {
       bool enableTenantDiscovery,
       const BlobClientOptions& options)
   {
-    const auto createBearerPolicy
-        = [&credential, &tokenRequestContext, enableTenantDiscovery]()
-        -> TokenAuthenticationPolicies {
+    const auto createBearerPolicy = [&credential,
+                                     &tokenRequestContext,
+                                     enableTenantDiscovery]() -> TokenAuthenticationPolicies {
       TokenAuthenticationPolicies policies;
       policies.TokenAuthPolicy
           = std::make_unique<Azure::Storage::_internal::StorageBearerTokenAuthenticationPolicy>(

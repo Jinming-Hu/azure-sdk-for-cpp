@@ -124,14 +124,12 @@ namespace Azure { namespace Storage { namespace Test {
               std::vector<uint8_t>{'s', 'e', 's', 's', 'i', 'o', 'n'});
           const auto signatureSeparator = authorization.Value().find(':');
           const auto expectedAuthorization = authorization.Value().substr(0, signatureSeparator + 1)
-              + Azure::Storage::_internal::SharedKeyPolicy::GetSignature(
-                  request, "account", key);
+              + Azure::Storage::_internal::SharedKeyPolicy::GetSignature(request, "account", key);
           m_state->SessionSignaturesValid.emplace_back(
               signatureSeparator != std::string::npos
               && authorization.Value() == expectedAuthorization);
         }
-        if (query.count("session-test") != 0
-            && request.GetHeader("x-ms-session-test").HasValue())
+        if (query.count("session-test") != 0 && request.GetHeader("x-ms-session-test").HasValue())
         {
           m_state->MutatedDownloadObserved = true;
         }
@@ -147,8 +145,7 @@ namespace Azure { namespace Storage { namespace Test {
           return response;
         }
 
-        if (m_state->FailFirstDownloadWithServerError
-            && !m_state->FailedDownloadWithServerError)
+        if (m_state->FailFirstDownloadWithServerError && !m_state->FailedDownloadWithServerError)
         {
           m_state->FailedDownloadWithServerError = true;
           return CreateResponse(
@@ -174,10 +171,10 @@ namespace Azure { namespace Storage { namespace Test {
           std::vector<uint8_t> body = {}) const
       {
         m_state->ResponseBodies.emplace_back(std::move(body));
-        auto response = std::make_unique<Azure::Core::Http::RawResponse>(
-            1, 1, statusCode, reasonPhrase);
-        response->SetBodyStream(std::make_unique<Azure::Core::IO::MemoryBodyStream>(
-            m_state->ResponseBodies.back()));
+        auto response
+            = std::make_unique<Azure::Core::Http::RawResponse>(1, 1, statusCode, reasonPhrase);
+        response->SetBodyStream(
+            std::make_unique<Azure::Core::IO::MemoryBodyStream>(m_state->ResponseBodies.back()));
         return response;
       }
 
@@ -223,8 +220,7 @@ namespace Azure { namespace Storage { namespace Test {
           Azure::Core::Context const& context) const override
       {
         const auto query = request.GetUrl().GetQueryParameters();
-        if (request.GetMethod() == Azure::Core::Http::HttpMethod::Get
-            && query.count("comp") == 0)
+        if (request.GetMethod() == Azure::Core::Http::HttpMethod::Get && query.count("comp") == 0)
         {
           request.SetHeader("Host", request.GetUrl().GetHost());
           request.GetUrl().SetHost(
@@ -256,8 +252,8 @@ namespace Azure { namespace Storage { namespace Test {
           Azure::Core::Context const& context) const override
       {
         const auto query = request.GetUrl().GetQueryParameters();
-        if (request.GetMethod() == Azure::Core::Http::HttpMethod::Post
-            && query.count("comp") != 0 && query.at("comp") == "session")
+        if (request.GetMethod() == Azure::Core::Http::HttpMethod::Post && query.count("comp") != 0
+            && query.at("comp") == "session")
         {
           ++*m_sessionRequestCount;
         }
@@ -415,6 +411,33 @@ namespace Azure { namespace Storage { namespace Test {
     EXPECT_EQ(state->CreateSessionVersions[1], Blobs::_detail::ApiVersion);
   }
 
+  TEST(SessionAuthenticationTest, SharedProviderSupportsIndependentClients)
+  {
+    auto credential = std::make_shared<SessionTestCredential>();
+    auto state = std::make_shared<SessionTestState>();
+    Blobs::BlobClientOptions providerOptions;
+    AddSessionTestTransport(providerOptions, state);
+    providerOptions.Session.AccountName = "account";
+    auto provider = std::make_shared<Blobs::SessionProvider>(
+        "https://account.blob.core.windows.net", credential, providerOptions);
+
+    auto clientOptions = providerOptions;
+    clientOptions.Session.Provider = provider;
+    Blobs::BlobClient first(
+        "https://account.blob.core.windows.net/container/blob1", credential, clientOptions);
+    Blobs::BlobClient second(
+        "https://account.blob.core.windows.net/container/blob2", credential, clientOptions);
+
+    EXPECT_NO_THROW(first.Download());
+    EXPECT_NO_THROW(second.Download());
+
+    ASSERT_EQ(state->CreateSessionContainers.size(), 1U);
+    EXPECT_EQ(state->CreateSessionContainers[0], "container");
+    ASSERT_EQ(state->AuthorizationHeaders.size(), 3U);
+    EXPECT_EQ(state->AuthorizationHeaders[1].find("Session "), 0U);
+    EXPECT_EQ(state->AuthorizationHeaders[2].find("Session "), 0U);
+  }
+
   TEST(SessionAuthenticationTest, ExplicitProviderSupportsCustomEndpoint)
   {
     auto credential = std::make_shared<SessionTestCredential>();
@@ -425,8 +448,7 @@ namespace Azure { namespace Storage { namespace Test {
     options.Session.Provider = std::make_shared<Blobs::SessionProvider>(
         "https://storage.contoso.com", credential, options);
 
-    Blobs::BlobClient client(
-        "https://storage.contoso.com/container/blob", credential, options);
+    Blobs::BlobClient client("https://storage.contoso.com/container/blob", credential, options);
     EXPECT_NO_THROW(client.Download());
 
     ASSERT_EQ(state->CreateSessionContainers.size(), 1U);
@@ -445,8 +467,7 @@ namespace Azure { namespace Storage { namespace Test {
     options.Session.Provider = std::make_shared<Blobs::SessionProvider>(
         "https://localhost/account", credential, options);
 
-    Blobs::BlobClient client(
-        "https://localhost/account/container/blob", credential, options);
+    Blobs::BlobClient client("https://localhost/account/container/blob", credential, options);
     EXPECT_NO_THROW(client.Download());
 
     ASSERT_EQ(state->CreateSessionContainers.size(), 1U);
@@ -473,8 +494,7 @@ namespace Azure { namespace Storage { namespace Test {
     Blobs::BlobClientOptions options;
     AddSessionTestTransport(options, state);
 
-    Blobs::BlobClient client(
-        "https://storage.contoso.com/container/blob", credential, options);
+    Blobs::BlobClient client("https://storage.contoso.com/container/blob", credential, options);
     EXPECT_NO_THROW(client.Download());
 
     EXPECT_TRUE(state->CreateSessionContainers.empty());
