@@ -35,19 +35,31 @@ namespace Azure { namespace Storage {
       struct BlobLayoutRange final
       {
         /**
-         * @brief The byte offset at which the range starts.
+         * @brief The range of bytes served by the endpoint.
          */
-        int64_t Offset = 0;
+        Azure::Core::Http::HttpRange Range;
 
         /**
-         * @brief The length of the range in bytes.
-         */
-        int64_t Length = 0;
-
-        /**
-         * @brief The endpoint from which the range can be downloaded.
+         * @brief The host and port of the endpoint serving this range.
          */
         std::string Endpoint;
+      };
+
+      /**
+       * @brief The ranges in a page of a blob's data locality layout.
+       */
+      struct BlobLayoutRanges final
+      {
+        std::vector<BlobLayoutRange> Ranges;
+      };
+
+      /**
+       * @brief A page of blob layout information and the blob properties returned with it.
+       */
+      struct BlobLayoutInfo final
+      {
+        BlobLayoutRanges Ranges;
+        BlobProperties Properties;
       };
 
       /**
@@ -510,19 +522,9 @@ namespace Azure { namespace Storage {
         : public Azure::Core::PagedResponse<BlobLayoutPagedResponse> {
     public:
       /**
-       * @brief The ranges in this page of the blob's data locality layout.
+       * @brief The layout and blob properties in this page.
        */
-      std::vector<Models::BlobLayoutRange> Ranges;
-
-      /**
-       * @brief The size of the blob in bytes.
-       */
-      int64_t BlobSize = 0;
-
-      /**
-       * @brief The blob's entity tag.
-       */
-      Azure::ETag ETag;
+      Models::BlobLayoutInfo Layout;
 
     private:
       void OnNextPage(const Azure::Core::Context& context);

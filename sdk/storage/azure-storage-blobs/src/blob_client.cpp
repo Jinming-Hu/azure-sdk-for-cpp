@@ -52,6 +52,53 @@ namespace Azure { namespace Storage { namespace Blobs {
       return value != LayoutAwareRouting::Disabled;
     }
 
+    void CompleteBlobPropertiesFromResponse(
+        Models::BlobProperties& properties,
+        const Azure::Core::Http::RawResponse& rawResponse)
+    {
+      if (properties.AccessTier.HasValue() && !properties.IsAccessTierInferred.HasValue())
+      {
+        properties.IsAccessTierInferred = false;
+      }
+      if (properties.VersionId.HasValue() && !properties.IsCurrentVersion.HasValue())
+      {
+        properties.IsCurrentVersion = false;
+      }
+      if (properties.CopyStatus.HasValue() && !properties.IsIncrementalCopy.HasValue())
+      {
+        properties.IsIncrementalCopy = false;
+      }
+      if (properties.BlobType == Models::BlobType::AppendBlob && !properties.IsSealed.HasValue())
+      {
+        properties.IsSealed = false;
+      }
+
+      std::map<std::string, std::vector<Models::ObjectReplicationRule>> orPropertiesMap;
+      for (auto i = rawResponse.GetHeaders().lower_bound("x-ms-or-");
+           i != rawResponse.GetHeaders().end() && i->first.substr(0, 8) == "x-ms-or-";
+           ++i)
+      {
+        const std::string& header = i->first;
+        auto underscorePos = header.find('_', 8);
+        if (underscorePos == std::string::npos)
+        {
+          continue;
+        }
+        std::string policyId = std::string(header.begin() + 8, header.begin() + underscorePos);
+        Models::ObjectReplicationRule rule;
+        rule.RuleId = header.substr(underscorePos + 1);
+        rule.ReplicationStatus = Models::ObjectReplicationStatus(i->second);
+        orPropertiesMap[policyId].emplace_back(std::move(rule));
+      }
+      for (auto& property : orPropertiesMap)
+      {
+        Models::ObjectReplicationPolicy policy;
+        policy.PolicyId = property.first;
+        policy.Rules = std::move(property.second);
+        properties.ObjectReplicationSourceProperties.emplace_back(std::move(policy));
+      }
+    }
+
     std::unique_ptr<_detail::DataLocalityLayoutState> CreateDataLocalityLayoutState(
         BlobClient blobClient,
         Azure::Nullable<Azure::Core::Http::HttpRange> range,
@@ -73,22 +120,27 @@ namespace Azure { namespace Storage { namespace Blobs {
           {
             if (!layout.ETag.HasValue())
             {
-              layout.ETag = page.ETag;
+              layout.ETag = page.Layout.Properties.ETag;
             }
             if (layout.BlobSize == 0)
             {
-              layout.BlobSize = page.BlobSize;
+              layout.BlobSize = page.Layout.Properties.BlobSize;
             }
-            for (auto& layoutRange : page.Ranges)
+            for (auto& layoutRange : page.Layout.Ranges.Ranges)
             {
-              layout.Ranges.emplace_back(std::move(layoutRange));
+              if (layoutRange.Endpoint.empty() || layoutRange.Range.Offset < 0
+                  || !layoutRange.Range.Length.HasValue() || layoutRange.Range.Length.Value() <= 0)
+              {
+                throw Azure::Core::RequestFailedException("Invalid blob layout range.");
+              }
+              layout.Ranges.push_back(std::move(layoutRange));
             }
           }
           std::sort(
               layout.Ranges.begin(),
               layout.Ranges.end(),
               [](const Models::BlobLayoutRange& lhs, const Models::BlobLayoutRange& rhs) {
-                return lhs.Offset < rhs.Offset;
+                return lhs.Range.Offset < rhs.Range.Offset;
               });
           return layout;
         }
@@ -471,24 +523,8 @@ namespace Azure { namespace Storage { namespace Blobs {
     auto response
         = _detail::BlobClient::GetLayout(*m_pipeline, m_blobUrl, protocolLayerOptions, context);
     BlobLayoutPagedResponse pagedResponse;
-    const auto& headers = response.RawResponse->GetHeaders();
-    auto etag = headers.find("ETag");
-    if (etag != headers.end())
-    {
-      pagedResponse.ETag = Azure::ETag(etag->second);
-    }
-    else
-    {
-      pagedResponse.ETag = options.AccessConditions.IfMatch;
-    }
-    auto contentLength = headers.find("x-ms-blob-content-length");
-    if (contentLength != headers.end())
-    {
-      pagedResponse.BlobSize = std::stoll(contentLength->second);
-    }
-
     std::map<int32_t, std::string> endpoints;
-    for (const auto& endpoint : response.Value.Endpoints.Endpoint)
+    for (const auto& endpoint : response.Value.Endpoints)
     {
       if (endpoint.Index < 0 || endpoint.Value.empty()
           || !endpoints.emplace(endpoint.Index, endpoint.Value).second)
@@ -496,9 +532,9 @@ namespace Azure { namespace Storage { namespace Blobs {
         throw Azure::Core::RequestFailedException("Invalid blob layout endpoint.");
       }
     }
-    for (const auto& range : response.Value.Ranges.Range)
+    for (const auto& range : response.Value.Ranges)
     {
-      auto endpoint = endpoints.find(range.EndpointIndex);
+      const auto endpoint = endpoints.find(range.EndpointIndex);
       if (range.Start < 0 || range.End < range.Start || endpoint == endpoints.end())
       {
         throw Azure::Core::RequestFailedException("Invalid blob layout range.");
@@ -509,9 +545,18 @@ namespace Azure { namespace Storage { namespace Blobs {
       {
         throw Azure::Core::RequestFailedException("Invalid blob layout range.");
       }
-      pagedResponse.Ranges.push_back(Models::BlobLayoutRange{
-          range.Start, static_cast<int64_t>(rangeLength), endpoint->second});
+      Models::BlobLayoutRange layoutRange;
+      layoutRange.Range.Offset = range.Start;
+      layoutRange.Range.Length = static_cast<int64_t>(rangeLength);
+      layoutRange.Endpoint = endpoint->second;
+      pagedResponse.Layout.Ranges.Ranges.push_back(std::move(layoutRange));
     }
+    pagedResponse.Layout.Properties = std::move(response.Value.Properties);
+    if (!pagedResponse.Layout.Properties.ETag.HasValue())
+    {
+      pagedResponse.Layout.Properties.ETag = options.AccessConditions.IfMatch;
+    }
+    CompleteBlobPropertiesFromResponse(pagedResponse.Layout.Properties, *response.RawResponse);
 
     pagedResponse.m_blobClient = std::make_shared<BlobClient>(*this);
     pagedResponse.m_operationOptions = options;
@@ -868,51 +913,7 @@ namespace Azure { namespace Storage { namespace Blobs {
     }
     auto response = _detail::BlobClient::GetProperties(
         *m_pipeline, m_blobUrl, protocolLayerOptions, _internal::WithReplicaStatus(context));
-    if (response.Value.AccessTier.HasValue() && !response.Value.IsAccessTierInferred.HasValue())
-    {
-      response.Value.IsAccessTierInferred = false;
-    }
-    if (response.Value.VersionId.HasValue() && !response.Value.IsCurrentVersion.HasValue())
-    {
-      response.Value.IsCurrentVersion = false;
-    }
-    if (response.Value.CopyStatus.HasValue() && !response.Value.IsIncrementalCopy.HasValue())
-    {
-      response.Value.IsIncrementalCopy = false;
-    }
-    if (response.Value.BlobType == Models::BlobType::AppendBlob
-        && !response.Value.IsSealed.HasValue())
-    {
-      response.Value.IsSealed = false;
-    }
-    {
-      std::map<std::string, std::vector<Models::ObjectReplicationRule>> orPropertiesMap;
-      for (auto i = response.RawResponse->GetHeaders().lower_bound("x-ms-or-");
-           i != response.RawResponse->GetHeaders().end() && i->first.substr(0, 8) == "x-ms-or-";
-           ++i)
-      {
-        const std::string& header = i->first;
-        auto underscorePos = header.find('_', 8);
-        if (underscorePos == std::string::npos)
-        {
-          continue;
-        }
-        std::string policyId = std::string(header.begin() + 8, header.begin() + underscorePos);
-        std::string ruleId = header.substr(underscorePos + 1);
-
-        Models::ObjectReplicationRule rule;
-        rule.RuleId = std::move(ruleId);
-        rule.ReplicationStatus = Models::ObjectReplicationStatus(i->second);
-        orPropertiesMap[policyId].emplace_back(std::move(rule));
-      }
-      for (auto& property : orPropertiesMap)
-      {
-        Models::ObjectReplicationPolicy policy;
-        policy.PolicyId = property.first;
-        policy.Rules = std::move(property.second);
-        response.Value.ObjectReplicationSourceProperties.emplace_back(std::move(policy));
-      }
-    }
+    CompleteBlobPropertiesFromResponse(response.Value, *response.RawResponse);
     return response;
   }
 

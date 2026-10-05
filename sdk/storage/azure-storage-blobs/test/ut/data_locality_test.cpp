@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 #include "../../src/private/data_locality.hpp"
+#include "test/ut/test_base.hpp"
 
 #include <azure/storage/blobs.hpp>
 
@@ -12,6 +13,7 @@
 #include <limits>
 #include <memory>
 #include <mutex>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -80,10 +82,23 @@ namespace Azure { namespace Storage { namespace Test {
 
         if (isLayout)
         {
+          auto setLayoutPropertyHeaders = [&](Core::Http::RawResponse& response) {
+            response.SetHeader("etag", "\"locality-etag\"");
+            response.SetHeader("last-modified", "Thu, 23 Aug 2001 07:00:00 GMT");
+            response.SetHeader("x-ms-creation-time", "Thu, 22 Aug 2002 07:00:00 GMT");
+            response.SetHeader("x-ms-meta-layout", "metadata");
+            response.SetHeader("x-ms-blob-content-length", std::to_string(m_data->size()));
+            response.SetHeader("x-ms-blob-content-type", "application/octet-stream");
+            response.SetHeader("x-ms-blob-content-encoding", "identity");
+            response.SetHeader("x-ms-blob-type", "BlockBlob");
+            response.SetHeader("x-ms-server-encrypted", "true");
+          };
           if (m_state->LayoutStatus == Core::Http::HttpStatusCode::NoContent)
           {
-            return std::make_unique<Core::Http::RawResponse>(
+            auto response = std::make_unique<Core::Http::RawResponse>(
                 1, 1, Core::Http::HttpStatusCode::NoContent, "No Content");
+            setLayoutPropertyHeaders(*response);
+            return response;
           }
           if (m_state->LayoutStatus != Core::Http::HttpStatusCode::Ok)
           {
@@ -129,8 +144,7 @@ namespace Azure { namespace Storage { namespace Test {
               1, 1, Core::Http::HttpStatusCode::Ok, "OK");
           response->SetBody(std::vector<uint8_t>(layout.begin(), layout.end()));
           response->SetHeader("content-type", "application/xml");
-          response->SetHeader("etag", "\"locality-etag\"");
-          response->SetHeader("x-ms-blob-content-length", std::to_string(m_data->size()));
+          setLayoutPropertyHeaders(*response);
           return response;
         }
 
@@ -209,13 +223,28 @@ namespace Azure { namespace Storage { namespace Test {
       return options;
     }
 
+    Blobs::Models::BlobLayoutRange MakeLayoutRange(
+        int64_t offset,
+        int64_t length,
+        std::string endpoint)
+    {
+      Blobs::Models::BlobLayoutRange range;
+      range.Range.Offset = offset;
+      range.Range.Length = length;
+      range.Endpoint = std::move(endpoint);
+      return range;
+    }
+
     Blobs::_detail::DataLocalityLayout CreateLayout(const std::string& endpoint)
     {
       Blobs::_detail::DataLocalityLayout layout;
-      layout.Ranges = {{0, 1024 * 1024, endpoint}};
+      layout.Ranges = {MakeLayoutRange(0, 1024 * 1024, endpoint)};
       return layout;
     }
   } // namespace
+
+  class DataLocalityRecordedTest : public StorageTest {
+  };
 
   TEST(DataLocalityTest, SelectsIdealEndpoint)
   {
@@ -231,24 +260,38 @@ namespace Azure { namespace Storage { namespace Test {
 
     const auto maxOffset = (std::numeric_limits<int64_t>::max)();
     const std::vector<TestCase> testCases{
-        {"NegativeOffset", -1, 1, {{0, 10, "A"}}, ""},
-        {"ZeroLength", 0, 0, {{0, 10, "A"}}, ""},
-        {"NegativeLength", 0, -1, {{0, 10, "A"}}, ""},
+        {"NegativeOffset", -1, 1, {MakeLayoutRange(0, 10, "A")}, ""},
+        {"ZeroLength", 0, 0, {MakeLayoutRange(0, 10, "A")}, ""},
+        {"NegativeLength", 0, -1, {MakeLayoutRange(0, 10, "A")}, ""},
         {"EmptyLayout", 0, 1, {}, ""},
-        {"BeforeLayout", 0, 5, {{10, 10, "A"}}, ""},
-        {"AfterLayout", 20, 1, {{10, 10, "A"}}, ""},
-        {"RequestStartsInGap", 5, 10, {{10, 10, "A"}}, "A"},
-        {"ExactRangeStart", 10, 1, {{10, 10, "A"}}, "A"},
-        {"ExactRangeEnd", 19, 1, {{10, 10, "A"}}, "A"},
-        {"SkipsEarlierRanges", 100, 1, {{0, 10, "A"}, {100, 10, "B"}}, "B"},
+        {"BeforeLayout", 0, 5, {MakeLayoutRange(10, 10, "A")}, ""},
+        {"AfterLayout", 20, 1, {MakeLayoutRange(10, 10, "A")}, ""},
+        {"RequestStartsInGap", 5, 10, {MakeLayoutRange(10, 10, "A")}, "A"},
+        {"ExactRangeStart", 10, 1, {MakeLayoutRange(10, 10, "A")}, "A"},
+        {"ExactRangeEnd", 19, 1, {MakeLayoutRange(10, 10, "A")}, "A"},
+        {"SkipsEarlierRanges",
+         100,
+         1,
+         {MakeLayoutRange(0, 10, "A"), MakeLayoutRange(100, 10, "B")},
+         "B"},
         {"LargestOverlap",
          200 * 1024,
          400 * 1024,
-         {{0, 256 * 1024, "A"}, {256 * 1024, 256 * 1024, "B"}, {512 * 1024, 256 * 1024, "A"}},
+         {MakeLayoutRange(0, 256 * 1024, "A"),
+          MakeLayoutRange(256 * 1024, 256 * 1024, "B"),
+          MakeLayoutRange(512 * 1024, 256 * 1024, "A")},
          "B"},
-        {"AggregatesDisjointRanges", 5, 25, {{0, 10, "A"}, {10, 10, "B"}, {20, 10, "A"}}, "A"},
-        {"IgnoresLayoutGaps", 0, 30, {{0, 5, "A"}, {20, 10, "B"}}, "B"},
-        {"RequestEndOverflow", maxOffset - 4, 10, {{maxOffset - 9, 10, "A"}}, "A"},
+        {"AggregatesDisjointRanges",
+         5,
+         25,
+         {MakeLayoutRange(0, 10, "A"), MakeLayoutRange(10, 10, "B"), MakeLayoutRange(20, 10, "A")},
+         "A"},
+        {"IgnoresLayoutGaps",
+         0,
+         30,
+         {MakeLayoutRange(0, 5, "A"), MakeLayoutRange(20, 10, "B")},
+         "B"},
+        {"RequestEndOverflow", maxOffset - 4, 10, {MakeLayoutRange(maxOffset - 9, 10, "A")}, "A"},
     };
 
     for (const auto& testCase : testCases)
@@ -265,7 +308,7 @@ namespace Azure { namespace Storage { namespace Test {
   TEST(DataLocalityTest, SelectsEitherEndpointForEqualOverlap)
   {
     Blobs::_detail::DataLocalityLayout layout;
-    layout.Ranges = {{0, 10, "A"}, {10, 10, "B"}};
+    layout.Ranges = {MakeLayoutRange(0, 10, "A"), MakeLayoutRange(10, 10, "B")};
 
     const auto endpoint = Blobs::_detail::GetIdealDataLocalityEndpoint(5, 10, layout);
     EXPECT_TRUE(endpoint == "A" || endpoint == "B");
@@ -283,6 +326,74 @@ namespace Azure { namespace Storage { namespace Test {
     EXPECT_EQ(refreshCount, 1);
     EXPECT_EQ(state.GetEndpoint(0, 1), "A");
     EXPECT_EQ(refreshCount, 1);
+  }
+
+  TEST(DataLocalityTest, GetLayoutReturnsLayoutAndBlobProperties)
+  {
+    auto state = std::make_shared<LocalityState>();
+    auto data = std::make_shared<std::string>(1024 * 1024, 'l');
+    auto client = CreateLocalityClient(state, data);
+
+    auto page = client.GetLayout();
+
+    ASSERT_EQ(page.Layout.Ranges.Ranges.size(), 4U);
+    EXPECT_EQ(page.Layout.Ranges.Ranges[0].Range.Offset, 0);
+    ASSERT_TRUE(page.Layout.Ranges.Ranges[0].Range.Length.HasValue());
+    EXPECT_EQ(page.Layout.Ranges.Ranges[0].Range.Length.Value(), 262144);
+    EXPECT_EQ(page.Layout.Ranges.Ranges[0].Endpoint, "locality0.test:443");
+    EXPECT_EQ(page.Layout.Ranges.Ranges[1].Endpoint, "locality1.test:443");
+    EXPECT_EQ(page.Layout.Properties.ETag.ToString(), "\"locality-etag\"");
+    EXPECT_EQ(page.Layout.Properties.BlobSize, static_cast<int64_t>(data->size()));
+    EXPECT_EQ(page.Layout.Properties.BlobType, Blobs::Models::BlobType::BlockBlob);
+    EXPECT_EQ(page.Layout.Properties.HttpHeaders.ContentType, "application/octet-stream");
+    EXPECT_EQ(page.Layout.Properties.HttpHeaders.ContentEncoding, "identity");
+    EXPECT_EQ(page.Layout.Properties.Metadata.at("layout"), "metadata");
+    EXPECT_TRUE(page.Layout.Properties.IsServerEncrypted);
+  }
+
+  TEST(DataLocalityTest, GetLayoutNoContentReturnsBlobProperties)
+  {
+    auto state = std::make_shared<LocalityState>();
+    state->LayoutStatus = Core::Http::HttpStatusCode::NoContent;
+    auto data = std::make_shared<std::string>(1024 * 1024, 'n');
+    auto client = CreateLocalityClient(state, data);
+
+    auto page = client.GetLayout();
+
+    EXPECT_TRUE(page.Layout.Ranges.Ranges.empty());
+    EXPECT_EQ(page.Layout.Properties.ETag.ToString(), "\"locality-etag\"");
+    EXPECT_EQ(page.Layout.Properties.BlobSize, static_cast<int64_t>(data->size()));
+    EXPECT_EQ(page.Layout.Properties.Metadata.at("layout"), "metadata");
+    EXPECT_EQ(page.RawResponse->GetStatusCode(), Core::Http::HttpStatusCode::NoContent);
+  }
+
+  TEST_F(DataLocalityRecordedTest, GetLayoutMultipleEndpoints_PLAYBACKONLY_)
+  {
+    auto clientOptions = InitStorageClientOptions<Blobs::BlobClientOptions>();
+    auto blobClient = Blobs::BlobClient::CreateFromConnectionString(
+        StandardStorageConnectionString(),
+        "jinmhu-test",
+        "data-locality-multi-endpoint.bin",
+        clientOptions);
+
+    std::set<std::string> endpoints;
+    size_t rangeCount = 0;
+    auto page = blobClient.GetLayout();
+    for (; page.HasPage(); page.MoveToNextPage())
+    {
+      rangeCount += page.Layout.Ranges.Ranges.size();
+      for (const auto& range : page.Layout.Ranges.Ranges)
+      {
+        endpoints.insert(range.Endpoint);
+      }
+    }
+
+    if (m_testContext.IsLiveMode() && endpoints.size() < 2)
+    {
+      GTEST_SKIP() << "The configured live account does not return a multi-endpoint layout.";
+    }
+    EXPECT_GT(rangeCount, 0U);
+    EXPECT_GE(endpoints.size(), 2U);
   }
 
   TEST(DataLocalityTest, RoutesDownloadChunks)

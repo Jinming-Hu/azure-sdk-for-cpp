@@ -29,13 +29,14 @@ namespace Azure { namespace Storage { namespace Blobs { namespace _detail {
         layout.Ranges.end(),
         offset,
         [](const Models::BlobLayoutRange& value, int64_t target) {
-          return value.Offset <= target && value.Length <= target - value.Offset;
+          return value.Range.Offset <= target
+              && value.Range.Length.Value() <= target - value.Range.Offset;
         });
     std::unordered_map<std::string, uint64_t> endpointOverlaps;
-    for (; range != layout.Ranges.end() && range->Offset <= requestEnd; ++range)
+    for (; range != layout.Ranges.end() && range->Range.Offset <= requestEnd; ++range)
     {
-      const int64_t rangeEnd = range->Offset + range->Length - 1;
-      const int64_t overlapStart = (std::max)(offset, range->Offset);
+      const int64_t rangeEnd = range->Range.Offset + range->Range.Length.Value() - 1;
+      const int64_t overlapStart = (std::max)(offset, range->Range.Offset);
       const int64_t overlapEnd = (std::min)(requestEnd, rangeEnd);
       if (overlapStart > overlapEnd)
       {
