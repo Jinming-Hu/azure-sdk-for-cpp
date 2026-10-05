@@ -548,6 +548,26 @@ namespace Azure { namespace Storage { namespace Test {
     EXPECT_EQ(state->Requests[2].IfMatch, "\"locality-etag\"");
   }
 
+  TEST(DataLocalityTest, RoutesOneShotDownloadToLayoutEndpoint)
+  {
+    auto state = std::make_shared<LocalityState>();
+    auto data = std::make_shared<std::string>(4 * 1024, 'o');
+    auto client = CreateLocalityClient(state, data);
+
+    Blobs::DownloadBlobOptions options;
+    options.LayoutEndpoint = "locality0.test:443";
+    auto response = client.Download(options);
+
+    EXPECT_TRUE(response.Value.Details.DownloadHint.HasValue());
+    EXPECT_EQ(response.Value.Details.DownloadHint.Value(), Blobs::Models::DownloadHint::Layout);
+
+    std::lock_guard<std::mutex> lock(state->Mutex);
+    ASSERT_EQ(state->Requests.size(), 1U);
+    EXPECT_FALSE(state->Requests.front().IsLayout);
+    EXPECT_EQ(state->Requests.front().Host, "locality0.test");
+    EXPECT_EQ(state->Requests.front().HostHeader, "primary.test");
+  }
+
   TEST(DataLocalityTest, FallsBackOnUnsupportedLayout)
   {
     for (const auto status :

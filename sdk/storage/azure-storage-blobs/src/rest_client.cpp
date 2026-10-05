@@ -133,6 +133,7 @@ namespace Azure { namespace Storage { namespace Blobs {
     const CopyStatus CopyStatus::Success("success");
     const CopyStatus CopyStatus::Aborted("aborted");
     const CopyStatus CopyStatus::Failed("failed");
+    const DownloadHint DownloadHint::Layout("layout");
     const AccessTier AccessTier::P1("p1");
     const AccessTier AccessTier::P2("p2");
     const AccessTier AccessTier::P3("p3");
@@ -2652,6 +2653,11 @@ namespace Azure { namespace Storage { namespace Blobs {
       {
         response.Details.SmartAccessTier
             = Models::AccessTier(pRawResponse->GetHeaders().at("x-ms-smart-access-tier"));
+      }
+      if (pRawResponse->GetHeaders().count("x-ms-download-hint") != 0)
+      {
+        response.Details.DownloadHint
+            = Models::DownloadHint(pRawResponse->GetHeaders().at("x-ms-download-hint"));
       }
       if (httpStatusCode == Core::Http::HttpStatusCode::Ok)
       {

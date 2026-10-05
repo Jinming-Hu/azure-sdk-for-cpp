@@ -801,6 +801,14 @@ namespace Azure { namespace Storage { namespace Blobs {
      * @brief Optional. Configures whether to do content validation for blob downloads.
      */
     Azure::Nullable<TransferValidationOptions> ValidationOptions;
+
+    /**
+     * @brief Optional. The layout endpoint to use for this download.
+     *
+     * When set, the request is sent to this endpoint while preserving the client endpoint in the
+     * Host header.
+     */
+    std::string LayoutEndpoint;
   };
 
   /**

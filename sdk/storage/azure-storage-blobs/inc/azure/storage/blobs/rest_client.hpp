@@ -940,6 +940,19 @@ namespace Azure { namespace Storage { namespace Blobs {
       AZ_STORAGE_BLOBS_DLLEXPORT const static CopyStatus Failed;
     };
     /**
+     * @brief The download hint for a blob.
+     */
+    class DownloadHint final : public Core::_internal::ExtendableEnumeration<DownloadHint> {
+    public:
+      /** Constructs a new DownloadHint instance */
+      DownloadHint() = default;
+      /** Constructs a new DownloadHint from a string. */
+      explicit DownloadHint(std::string value) : ExtendableEnumeration(std::move(value)) {}
+
+      /** The blob layout can be retrieved with the Get Blob Layout operation. */
+      AZ_STORAGE_BLOBS_DLLEXPORT const static DownloadHint Layout;
+    };
+    /**
      * @brief Optional. Indicates the tier to be set on the blob.
      */
     class AccessTier final : public Core::_internal::ExtendableEnumeration<AccessTier> {
@@ -1614,6 +1627,10 @@ namespace Azure { namespace Storage { namespace Blobs {
        * The underlying tier of a smart tier blob. Only returned if the blob is in Smart tier.
        */
       Nullable<Models::AccessTier> SmartAccessTier;
+      /**
+       * Indicates the download hint for the blob.
+       */
+      Nullable<Models::DownloadHint> DownloadHint;
     };
     /**
      * @brief Response type for #Azure::Storage::Blobs::BlobClient::Download.

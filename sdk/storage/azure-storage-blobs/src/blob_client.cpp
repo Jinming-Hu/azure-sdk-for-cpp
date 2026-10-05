@@ -39,12 +39,12 @@ namespace Azure { namespace Storage { namespace Blobs {
   }
 
   namespace {
-    bool HasDataLocalityHint(const Azure::Core::Http::RawResponse& response)
+    bool HasDataLocalityHint(const Models::DownloadBlobDetails& details)
     {
-      const auto& headers = response.GetHeaders();
-      const auto hint = headers.find("x-ms-download-hint");
-      return hint != headers.end()
-          && Azure::Core::_internal::StringExtensions::ToLower(hint->second) == "layout";
+      return details.DownloadHint.HasValue()
+          && Azure::Core::_internal::StringExtensions::ToLower(
+                 details.DownloadHint.Value().ToString())
+          == Models::DownloadHint::Layout.ToString();
     }
 
     std::unique_ptr<_detail::DataLocalityLayoutState> CreateDataLocalityLayoutState(
@@ -289,8 +289,9 @@ namespace Azure { namespace Storage { namespace Blobs {
     }
 
     std::string dataLocalityEndpoint;
-    const auto downloadContext
-        = context.TryGetValue(_internal::DataLocalityEndpointKey, dataLocalityEndpoint)
+    const auto downloadContext = !options.LayoutEndpoint.empty()
+        ? _internal::WithDataLocalityEndpoint(context, options.LayoutEndpoint)
+        : context.TryGetValue(_internal::DataLocalityEndpointKey, dataLocalityEndpoint)
         ? context
         : _internal::WithReplicaStatus(context);
     auto downloadResponse = _detail::BlobClient::Download(
@@ -571,7 +572,7 @@ namespace Azure { namespace Storage { namespace Blobs {
 
     std::unique_ptr<_detail::DataLocalityLayoutState> dataLocalityState;
     if (remainingSize > 0 && options.EnableLayoutAwareRouting
-        && HasDataLocalityHint(*firstChunk.RawResponse))
+        && HasDataLocalityHint(firstChunk.Value.Details))
     {
       Core::Http::HttpRange remainingRange;
       remainingRange.Offset = remainingOffset;
@@ -718,7 +719,7 @@ namespace Azure { namespace Storage { namespace Blobs {
 
     std::unique_ptr<_detail::DataLocalityLayoutState> dataLocalityState;
     if (remainingSize > 0 && options.EnableLayoutAwareRouting
-        && HasDataLocalityHint(*firstChunk.RawResponse))
+        && HasDataLocalityHint(firstChunk.Value.Details))
     {
       Core::Http::HttpRange remainingRange;
       remainingRange.Offset = remainingOffset;
