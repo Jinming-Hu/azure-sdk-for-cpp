@@ -25,8 +25,14 @@ namespace Azure { namespace Storage { namespace Files { namespace Shares {
       result.LastAccessedOn = std::move(details.LastAccessedOn);
       result.LastModified = std::move(details.LastModified);
       result.Etag = std::move(details.Etag);
-      result.PosixProperties.Owner = std::move(details.Owner);
-      result.PosixProperties.Group = std::move(details.Group);
+      if (!details.Owner.empty())
+      {
+        result.PosixProperties.Owner = std::move(details.Owner);
+      }
+      if (!details.Group.empty())
+      {
+        result.PosixProperties.Group = std::move(details.Group);
+      }
       if (!details.FileMode.empty())
       {
         result.PosixProperties.FileMode = Models::NfsFileMode::ParseOctalFileMode(details.FileMode);
@@ -42,14 +48,26 @@ namespace Azure { namespace Storage { namespace Files { namespace Shares {
       result.LastAccessedOn = std::move(details.LastAccessedOn);
       result.LastModified = std::move(details.LastModified);
       result.Etag = std::move(details.Etag);
-      result.PosixProperties.Owner = std::move(details.Owner);
-      result.PosixProperties.Group = std::move(details.Group);
+      if (!details.Owner.empty())
+      {
+        result.PosixProperties.Owner = std::move(details.Owner);
+      }
+      if (!details.Group.empty())
+      {
+        result.PosixProperties.Group = std::move(details.Group);
+      }
       if (!details.FileMode.empty())
       {
         result.PosixProperties.FileMode = Models::NfsFileMode::ParseOctalFileMode(details.FileMode);
       }
       result.SmbProperties = std::move(details.SmbProperties);
       return result;
+    }
+
+    bool HasNfsListingTraits(const Models::FilePosixProperties& properties)
+    {
+      return properties.Owner.HasValue() || properties.Group.HasValue()
+          || properties.FileMode.HasValue() || properties.LinkCount.HasValue();
     }
   } // namespace
 
@@ -594,7 +612,10 @@ namespace Azure { namespace Storage { namespace Files { namespace Shares {
       }
       directoryItem.Details = ToDirectoryItemDetails(std::move(item.Details));
       directoryItem.Details.PosixProperties.LinkCount = std::move(item.LinkCount);
-      directoryItem.Details.PosixProperties.NfsFileType = Models::NfsFileType::Directory;
+      if (HasNfsListingTraits(directoryItem.Details.PosixProperties))
+      {
+        directoryItem.Details.PosixProperties.NfsFileType = Models::NfsFileType::Directory;
+      }
       pagedResponse.Directories.push_back(std::move(directoryItem));
     }
     for (auto& item : response.Value.Segment.FileItems)
@@ -610,7 +631,14 @@ namespace Azure { namespace Storage { namespace Files { namespace Shares {
       }
       fileItem.Details = ToFileItemDetails(std::move(item.Details));
       fileItem.Details.PosixProperties.LinkCount = std::move(item.LinkCount);
-      fileItem.Details.PosixProperties.NfsFileType = Models::NfsFileType::Regular;
+      if (!item.FileType.ToString().empty())
+      {
+        fileItem.Details.PosixProperties.NfsFileType = std::move(item.FileType);
+      }
+      else if (HasNfsListingTraits(fileItem.Details.PosixProperties))
+      {
+        fileItem.Details.PosixProperties.NfsFileType = Models::NfsFileType::Regular;
+      }
       pagedResponse.Files.push_back(std::move(fileItem));
     }
     for (auto& item : response.Value.Segment.SymLinkItems)

@@ -15,6 +15,9 @@
 
 ### Bugs Fixed
 
+- Preserved absent owner and group values in directory listings and avoided inferring NFS file
+  types for entries without NFS traits. File listings now honor the service-returned file type.
+
 ### Other Changes
 
 ## 12.19.0-beta.1 (2026-07-29)

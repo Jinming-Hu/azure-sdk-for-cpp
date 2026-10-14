@@ -646,10 +646,16 @@ namespace Azure { namespace Storage { namespace Test {
       for (const auto& i : page.Directories)
       {
         listedNameSet.insert(i.Name);
+        EXPECT_FALSE(i.Details.PosixProperties.Owner.HasValue());
+        EXPECT_FALSE(i.Details.PosixProperties.Group.HasValue());
+        EXPECT_FALSE(i.Details.PosixProperties.NfsFileType.HasValue());
       }
       for (const auto& i : page.Files)
       {
         listedNameSet.insert(i.Name);
+        EXPECT_FALSE(i.Details.PosixProperties.Owner.HasValue());
+        EXPECT_FALSE(i.Details.PosixProperties.Group.HasValue());
+        EXPECT_FALSE(i.Details.PosixProperties.NfsFileType.HasValue());
       }
     }
     EXPECT_EQ(nameSet, listedNameSet);
