@@ -54,6 +54,8 @@ namespace Azure { namespace Storage { namespace Blobs {
     /**
      * @brief Prefers session authentication for eligible requests.
      *
+     * Eligible requests include blob downloads and Get Blob Properties.
+     *
      * @note The client can fall back to bearer authentication while acquiring a session, when
      * session creation is temporarily unavailable, or when the service rejects a session.
      */

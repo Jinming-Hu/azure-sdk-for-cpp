@@ -193,7 +193,8 @@ namespace Azure { namespace Storage { namespace Blobs { namespace _detail {
     {
       return false;
     }
-    if (request.GetMethod() != Azure::Core::Http::HttpMethod::Get)
+    if (request.GetMethod() != Azure::Core::Http::HttpMethod::Get
+        && request.GetMethod() != Azure::Core::Http::HttpMethod::Head)
     {
       return false;
     }

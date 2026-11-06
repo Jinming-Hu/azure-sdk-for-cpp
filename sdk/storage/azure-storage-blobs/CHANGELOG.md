@@ -4,6 +4,8 @@
 
 ### Features Added
 
+- Added session authentication support for `BlobClient::GetProperties` when session authentication is enabled.
+
 ### Breaking Changes
 
 ### Bugs Fixed

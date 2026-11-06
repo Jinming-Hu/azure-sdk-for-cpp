@@ -302,6 +302,92 @@ namespace Azure { namespace Storage { namespace Test {
     EXPECT_TRUE(state->SessionSignaturesValid[0]);
   }
 
+  TEST(SessionAuthenticationTest, SignsGetPropertiesAndReusesSessionForDownload)
+  {
+    auto credential = std::make_shared<SessionTestCredential>();
+    auto state = std::make_shared<SessionTestState>();
+    Blobs::BlobClientOptions options;
+    EnableSessions(options, state);
+    options.Session.AccountName = "account";
+
+    Blobs::BlobClient client(
+        "https://account.blob.core.windows.net/container/blob", credential, options);
+    EXPECT_NO_THROW(client.GetProperties());
+    EXPECT_NO_THROW(client.WithSnapshot("2024-01-01T00:00:00Z").GetProperties());
+    EXPECT_NO_THROW(client.WithVersionId("2024-01-01T00:00:00Z").GetProperties());
+    EXPECT_NO_THROW(client.Download());
+
+    ASSERT_EQ(state->CreateSessionContainers.size(), 1U);
+    ASSERT_EQ(state->AuthorizationHeaders.size(), 5U);
+    ASSERT_EQ(state->SessionSignaturesValid.size(), 4U);
+    for (size_t i = 0; i < state->SessionSignaturesValid.size(); ++i)
+    {
+      EXPECT_EQ(state->AuthorizationHeaders[i + 1].find("Session token-container:"), 0U);
+      EXPECT_TRUE(state->SessionSignaturesValid[i]);
+    }
+    EXPECT_EQ(credential->GetTokenCount, 1);
+  }
+
+  TEST(SessionAuthenticationTest, GetPropertiesFallsBackToBearerAfter401)
+  {
+    auto credential = std::make_shared<SessionTestCredential>();
+    auto state = std::make_shared<SessionTestState>();
+    state->RejectFirstSessionRequest = true;
+    Blobs::BlobClientOptions options;
+    EnableSessions(options, state);
+
+    Blobs::BlobClient client(
+        "https://account.blob.core.windows.net/container/blob", credential, options);
+    EXPECT_NO_THROW(client.GetProperties());
+
+    ASSERT_EQ(state->AuthorizationHeaders.size(), 3U);
+    EXPECT_EQ(state->AuthorizationHeaders[1].find("Session token-container:"), 0U);
+    EXPECT_EQ(state->AuthorizationHeaders[2].find("Bearer "), 0U);
+    EXPECT_EQ(credential->GetTokenCount, 2);
+  }
+
+  TEST(SessionAuthenticationTest, GetPropertiesUsesBearerUnlessSessionsEnabled)
+  {
+    for (const auto mode : {Blobs::SessionMode::Auto, Blobs::SessionMode::Disabled})
+    {
+      auto credential = std::make_shared<SessionTestCredential>();
+      auto state = std::make_shared<SessionTestState>();
+      Blobs::BlobClientOptions options;
+      AddSessionTestTransport(options, state);
+      options.Session.Mode = mode;
+
+      Blobs::BlobClient client(
+          "https://account.blob.core.windows.net/container/blob", credential, options);
+      EXPECT_NO_THROW(client.GetProperties());
+
+      EXPECT_TRUE(state->CreateSessionContainers.empty());
+      ASSERT_EQ(state->AuthorizationHeaders.size(), 1U);
+      EXPECT_EQ(state->AuthorizationHeaders[0].find("Bearer "), 0U);
+    }
+  }
+
+  TEST(SessionAuthenticationTest, ExcludesNonBlobPropertiesRequests)
+  {
+    auto credential = std::make_shared<SessionTestCredential>();
+    auto state = std::make_shared<SessionTestState>();
+    Blobs::BlobClientOptions options;
+    EnableSessions(options, state);
+    for (const auto& path :
+         {"container", "container?restype=container", "container/blob?comp=metadata"})
+    {
+      Blobs::BlobClient client(
+          std::string("https://account.blob.core.windows.net/") + path, credential, options);
+      EXPECT_NO_THROW(client.GetProperties());
+    }
+
+    EXPECT_TRUE(state->CreateSessionContainers.empty());
+    ASSERT_EQ(state->AuthorizationHeaders.size(), 3U);
+    for (const auto& authorization : state->AuthorizationHeaders)
+    {
+      EXPECT_EQ(authorization.find("Bearer "), 0U);
+    }
+  }
+
   TEST(SessionAuthenticationTest, FallsBackToBearerAfter401)
   {
     auto credential = std::make_shared<SessionTestCredential>();
@@ -600,6 +686,30 @@ namespace Azure { namespace Storage { namespace Test {
 
   class SessionAuthenticationRecordedTest : public BlobContainerClientTest {
   };
+
+  TEST_F(BlobContainerClientTest, DISABLED_GetsPropertiesWithSession_LIVEONLY_)
+  {
+    auto blobClient = m_blobContainerClient->GetBlockBlobClient(RandomString());
+    const std::vector<uint8_t> content{'s', 'e', 's', 's', 'i', 'o', 'n'};
+    blobClient.UploadFrom(content.data(), content.size());
+
+    auto credential = std::make_shared<CountingTokenCredential>(GetTestCredential());
+    auto options = InitStorageClientOptions<Blobs::BlobClientOptions>();
+    options.Session.Mode = Blobs::SessionMode::Enabled;
+    auto sessionRequestCount = std::make_shared<std::atomic<int>>(0);
+    options.PerRetryPolicies.emplace_back(CreateSessionRequestCountingPolicy(sessionRequestCount));
+    Blobs::BlobClient sessionClient(blobClient.GetUrl(), credential, options);
+
+    for (int i = 0; i < 3; ++i)
+    {
+      auto properties = sessionClient.GetProperties();
+      EXPECT_EQ(properties.Value.BlobSize, static_cast<int64_t>(content.size()));
+      EXPECT_EQ(properties.Value.BlobType, Blobs::Models::BlobType::BlockBlob);
+    }
+    EXPECT_EQ(sessionClient.Download().Value.BodyStream->ReadToEnd(), content);
+    EXPECT_EQ(credential->GetTokenCount(), 1);
+    EXPECT_EQ(sessionRequestCount->load(), 1);
+  }
 
   TEST_F(SessionAuthenticationRecordedTest, DownloadsWithDefaultSessionProvider_PLAYBACKONLY_)
   {
